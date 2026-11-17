@@ -1,0 +1,9 @@
+# HTTPS entry point. Phone cameras (getUserMedia) only work on HTTPS origins.
+# Locally Caddy issues a certificate from its own CA; set SITE_ADDRESS to your domain in production
+# and Caddy fetches a Let's Encrypt certificate automatically.
+{$SITE_ADDRESS::8443} {
+	encode zstd gzip
+	@backend path /api/* /socket.io/*
+	reverse_proxy @backend api:4000
+	reverse_proxy web:3000
+}

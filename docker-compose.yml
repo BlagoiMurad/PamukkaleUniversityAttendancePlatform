@@ -1,0 +1,49 @@
+# One-command stack: docker compose up --build   →   https://localhost:8443
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: attendance
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-attendance}
+      POSTGRES_DB: attendance
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U attendance"]
+      interval: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports: ["8025:8025"] # web UI with every e-mail the platform sends
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://attendance:${POSTGRES_PASSWORD:-attendance}@postgres:5432/attendance?schema=public
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-https://localhost:8443}
+      CORS_ORIGINS: ${PUBLIC_WEB_URL:-https://localhost:8443}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}
+      COOKIE_SECURE: "true"
+      TRUST_PROXY: "true"
+      REDIS_URL: redis://redis:6379
+      SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
+      MAIL_FROM: ${MAIL_FROM:-Attendance Platform <no-reply@example.edu>}
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    depends_on: [api]
+    environment:
+      API_URL: http://api:4000
+  caddy:
+    image: caddy:2-alpine
+    depends_on: [web, api]
+    ports: ["8443:8443"]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:8443}
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+volumes:
+  pgdata:
+  caddy_data:
