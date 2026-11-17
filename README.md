@@ -42,7 +42,7 @@ docker compose exec api npx ts-node --transpile-only prisma/seed.ts   # демо
 ```
 
 Отворете https://localhost:8443 (локален сертификат на Caddy, приемете го веднъж). Имейлите се виждат в Mailpit на http://localhost:8025.
-За тест с истински телефон в същата Wi-Fi мрежа задайте `PUBLIC_WEB_URL=https://<LAN-IP>:8443`: камерата работи само по HTTPS.
+За тест с истински телефон в същата Wi-Fi мрежа задайте в `.env` `PUBLIC_HOST=<LAN-IP>` и `PUBLIC_WEB_URL=https://<LAN-IP>:8443`: камерата работи само по HTTPS.
 
 ### За разработка
 

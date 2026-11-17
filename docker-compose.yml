@@ -39,6 +39,8 @@ services:
     image: caddy:2-alpine
     depends_on: [web, api]
     ports: ["8443:8443"]
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-127.0.0.1}
     volumes:
       - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

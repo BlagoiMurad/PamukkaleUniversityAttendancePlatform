@@ -1,7 +1,7 @@
 # HTTPS entry point. Phone cameras (getUserMedia) only work on HTTPS origins.
 #
-# Local / LAN testing (default): Caddy issues certificates from its own CA for whatever
-# address you open (localhost or your LAN IP). Browsers show a warning once; accept it.
+# Local / LAN testing (default): Caddy issues certificates from its own CA for localhost and
+# for PUBLIC_HOST (your LAN IP, set in .env). Browsers show a warning once; accept it.
 #
 # Production: replace "https://:8443" with your domain (e.g. attendance.pau.edu.tr),
 # delete the "tls internal" block and publish ports 80/443. Caddy then gets a Let's Encrypt
@@ -10,10 +10,8 @@
 	auto_https disable_redirects
 }
 
-https://:8443 {
-	tls internal {
-		on_demand
-	}
+https://localhost:8443, https://{$PUBLIC_HOST:127.0.0.1}:8443 {
+	tls internal
 	encode zstd gzip
 	@backend path /api/* /socket.io/*
 	reverse_proxy @backend api:4000
