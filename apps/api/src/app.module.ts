@@ -34,6 +34,8 @@ import { ReportsService } from './reports/reports.service';
 import { ReportsController } from './reports/reports.controller';
 import { RequestsService } from './requests/requests.service';
 import { RequestsController } from './requests/requests.controller';
+import { ImportsService } from './imports/imports.service';
+import { ImportsController } from './imports/imports.controller';
 
 @Module({
   imports: [
@@ -52,6 +54,7 @@ import { RequestsController } from './requests/requests.controller';
     AuditController,
     HealthController,
     ReportsController,
+    ImportsController,
     RequestsController,
   ],
   providers: [
@@ -72,6 +75,7 @@ import { RequestsController } from './requests/requests.controller';
     AttendanceService,
     JobsService,
     ReportsService,
+    ImportsService,
     RequestsService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },

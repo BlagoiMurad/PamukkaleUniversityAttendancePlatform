@@ -143,6 +143,17 @@ async function main() {
     await prisma.lesson.create({ data: { courseId: course1.id, teacherId: teacher.id, title: 'Week 7', room: 'B-204', startsAt: next, scheduledEndAt: new Date(next.getTime() + 90 * 60_000) } });
   }
 
+    // A few open requests so the inboxes have something to show
+  if (!(await prisma.attendanceRequest.count())) {
+    const absences = await prisma.attendance.findMany({ where: { status: { in: ['ABSENT', 'LATE'] }, lesson: { courseId: course1.id } }, orderBy: { createdAt: 'desc' }, take: 3 });
+    const reasons = ['I was in the room but my phone camera froze during the scan.', 'The bus was delayed; I arrived at 10:05 and the scan was slow.', 'I had a medical appointment, document attached at the office.'];
+    for (const [i, a] of absences.entries()) {
+      await prisma.attendanceRequest.create({
+        data: { kind: 'STUDENT_DISPUTE', lessonId: a.lessonId, studentId: a.studentId, attendanceId: a.id, authorId: a.studentId, reason: reasons[i % 3], requestedStatus: i === 2 ? 'EXCUSED' : 'PRESENT' },
+      });
+    }
+  }
+
   console.log('Seed complete. Demo accounts (password: %s):', PASSWORD);
   console.log('  admin@pau.edu.tr   teacher@pau.edu.tr   teacher2@pau.edu.tr   student@pau.edu.tr, student02 … student30@pau.edu.tr');
   void admin;

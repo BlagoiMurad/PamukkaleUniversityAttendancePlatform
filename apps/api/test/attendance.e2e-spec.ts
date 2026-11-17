@@ -296,3 +296,20 @@ describe('Authorization and reports', () => {
     expect(await prisma.lesson.count({ where: { courseId: ids.course, status: 'ACTIVE' } })).toBe(1);
   });
 });
+
+describe('User import (CSV)', () => {
+  it('previews, flags bad rows, then creates users and enrolls them once', async () => {
+    const a = await login('admin@t.edu');
+    const csv = 'E-mail,Име,Факултетен номер,course_code\nnew1@t.edu,New One,N1,T101\ns1@t.edu,Existing,F1,T101\nbroken,Bad,,\n';
+    const prev = await http.post('/api/admin/users/import/preview').set(auth(a)).attach('file', Buffer.from(csv), 'students.csv').expect(200);
+    expect(prev.body.summary).toMatchObject({ total: 3, create: 1, enrollOnly: 1, errors: 1 });
+    const done = await http.post(`/api/admin/users/import/${prev.body.batchId}/commit`).set(auth(a)).send({ sendInvites: false }).expect(200);
+    expect(done.body.counts).toMatchObject({ CREATED: 1, ENROLLED: 1, SKIPPED_ERROR: 1 });
+    expect(done.body.report[0].activationUrl).toContain('/activate?token=');
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: 'new1@t.edu' } });
+    expect(await prisma.enrollment.count({ where: { studentId: user.id, courseId: ids.course, state: 'ACTIVE' } })).toBe(1);
+    await http.post(`/api/admin/users/import/${prev.body.batchId}/commit`).set(auth(a)).send({}).expect(409);
+    const t = await login('teacher@t.edu');
+    await http.post('/api/admin/users/import/preview').set(auth(t)).attach('file', Buffer.from(csv), 'x.csv').expect(403);
+  });
+});

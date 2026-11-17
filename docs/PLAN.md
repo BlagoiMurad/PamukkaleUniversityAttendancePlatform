@@ -24,11 +24,17 @@ Legend: ✅ done · 🟡 partial · ⬜ next
 | QA | Unit tests (marker, detector round-trip) and API e2e tests (10:00 boundary, grace, replay, concurrency, revoked phone, unenrolled, removed, end mid-scan, foreign teacher 403) | ✅ |
 | Ops | Dockerfiles, docker-compose with Caddy HTTPS + Mailpit, CI workflow | ✅ |
 
+## Second batch (same PR)
+| Area | Item | Status |
+|------|------|--------|
+| BE | User import from CSV / XLSX: preview with per-row validation, commit, course enrollment, activation links, template (`/admin/users/import/*`) | ✅ |
+| FE | Admin: import wizard, settings editor, audit log viewer, requests queue, reports (weekly + per course) | ✅ |
+| FE | Teacher: weekly report page and requests inbox; student: my requests | ✅ |
+| QA | Import e2e test (preview, commit, double commit 409, teacher 403) | ✅ |
+
 ## Next
 | Area | Item | Status |
 |------|------|--------|
-| FE | Admin pages: CSV/XLSX import wizard, settings editor, audit log viewer, requests queue, reports | ⬜ (API for settings, audit, requests, reports is ready; import API next) |
-| FE | Teacher weekly report page and requests inbox; student requests page | ⬜ (API ready) |
-| BE | User import preview / commit (`/admin/users/import/*`) | ⬜ |
 | QA | Playwright E2E in CI with a fake camera feed | 🟡 (works locally, not yet in CI) |
 | Ops | Socket.IO Redis adapter for multiple API instances | ⬜ |
+| BE | SSO / LDAP adapter (if the university wants it) | ⬜ |
