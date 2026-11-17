@@ -1,0 +1,451 @@
+// University Attendance Platform — data model (spec sections 3, 16.6, 19, 22)
+// All timestamps are stored in UTC. The university time zone is only used for display and reports.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum UserStatus {
+  INVITED // created, waiting for activation / first login
+  ACTIVE
+  SUSPENDED // access revoked by an admin
+  ARCHIVED
+}
+
+model User {
+  id                     String     @id @default(uuid()) @db.Uuid
+  universityId           String?    @unique @map("university_id")
+  email                  String     @unique
+  emailVerified          Boolean    @default(false) @map("email_verified")
+  name                   String
+  preferredName          String?    @map("preferred_name")
+  phone                  String?
+  locale                 String     @default("en")
+  status                 UserStatus @default(INVITED)
+  role                   Role
+  passwordHash           String?    @map("password_hash")
+  mustChangePassword     Boolean    @default(false) @map("must_change_password")
+  tempPasswordExpiresAt  DateTime?  @map("temp_password_expires_at")
+  passwordChangedAt      DateTime?  @map("password_changed_at")
+  failedLoginCount       Int        @default(0) @map("failed_login_count")
+  lockedUntil            DateTime?  @map("locked_until")
+  mfaSecret              String?    @map("mfa_secret")
+  mfaEnabled             Boolean    @default(false) @map("mfa_enabled")
+  lastLoginAt            DateTime?  @map("last_login_at")
+  createdAt              DateTime   @default(now()) @map("created_at")
+  updatedAt              DateTime   @updatedAt @map("updated_at")
+
+  studentProfile     StudentProfile?
+  teacherProfile     TeacherProfile?
+  deviceSessions     DeviceSession[]
+  ownedCourses       Course[]             @relation("CourseOwner")
+  courseTeachers     CourseTeacher[]
+  enrollments        Enrollment[]
+  attendances        Attendance[]         @relation("AttendanceStudent")
+  attendanceEvents   AttendanceEvent[]    @relation("AttendanceEventActor")
+  challenges         AttendanceChallenge[]
+  oneTimeTokens      OneTimeToken[]
+  requestsMade       AttendanceRequest[]  @relation("RequestAuthor")
+  requestsAbout      AttendanceRequest[]  @relation("RequestStudent")
+  requestsReviewed   AttendanceRequest[]  @relation("RequestReviewer")
+  lessonsTaught      Lesson[]             @relation("LessonTeacher")
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model StudentProfile {
+  userId         String  @id @map("user_id") @db.Uuid
+  facultyNumber  String? @unique @map("faculty_number")
+  programme      String?
+  year           Int?
+  group          String?
+  optionalFields Json?   @map("optional_fields")
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("student_profiles")
+}
+
+model TeacherProfile {
+  userId     String  @id @map("user_id") @db.Uuid
+  department String?
+  faculty    String?
+  title      String?
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("teacher_profiles")
+}
+
+// One row per logged-in device/browser. "One active device" for students is enforced by revoking
+// every other non-revoked row when a new login succeeds (spec 4.2, 18.3).
+model DeviceSession {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  refreshTokenFamily String    @map("refresh_token_family")
+  refreshTokenHash   String    @map("refresh_token_hash")
+  deviceLabel        String?   @map("device_label")
+  userAgent          String?   @map("user_agent")
+  ipCoarse           String?   @map("ip_coarse")
+  mfaVerified        Boolean   @default(false) @map("mfa_verified")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  lastSeenAt         DateTime  @default(now()) @map("last_seen_at")
+  expiresAt          DateTime  @map("expires_at")
+  revokedAt          DateTime? @map("revoked_at")
+  revokedReason      String?   @map("revoked_reason")
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenges         AttendanceChallenge[]
+
+  @@index([userId, revokedAt])
+  @@map("device_sessions")
+}
+
+enum OneTimeTokenType {
+  ACTIVATION
+  PASSWORD_RESET
+  MFA_LOGIN
+}
+
+model OneTimeToken {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  type       OneTimeTokenType
+  tokenHash  String           @unique @map("token_hash")
+  expiresAt  DateTime         @map("expires_at")
+  consumedAt DateTime?        @map("consumed_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("one_time_tokens")
+}
+
+enum CourseStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model Course {
+  id        String       @id @default(uuid()) @db.Uuid
+  code      String
+  title     String
+  term      String
+  faculty   String?
+  ownerId   String       @map("owner_id") @db.Uuid
+  status    CourseStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  owner       User            @relation("CourseOwner", fields: [ownerId], references: [id])
+  teachers    CourseTeacher[]
+  enrollments Enrollment[]
+  lessons     Lesson[]
+
+  @@unique([code, term])
+  @@map("courses")
+}
+
+enum CourseTeacherRole {
+  OWNER
+  CO_TEACHER
+  ASSISTANT
+}
+
+model CourseTeacher {
+  courseId        String            @map("course_id") @db.Uuid
+  teacherId       String            @map("teacher_id") @db.Uuid
+  role            CourseTeacherRole @default(CO_TEACHER)
+  // Delegated right to un-enroll students (spec section 2, "Отписване от курс")
+  canManageRoster Boolean           @default(true) @map("can_manage_roster")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  course          Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacher         User              @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, teacherId])
+  @@map("course_teachers")
+}
+
+enum EnrollmentState {
+  ACTIVE
+  WITHDRAWN
+}
+
+// Enrollment history is kept: un-enrolling sets state=WITHDRAWN and validTo, it never deletes rows,
+// so historical reports still include the student for lessons held while they were enrolled.
+model Enrollment {
+  id        String          @id @default(uuid()) @db.Uuid
+  courseId  String          @map("course_id") @db.Uuid
+  studentId String          @map("student_id") @db.Uuid
+  state     EnrollmentState @default(ACTIVE)
+  validFrom DateTime        @default(now()) @map("valid_from")
+  validTo   DateTime?       @map("valid_to")
+  createdAt DateTime        @default(now()) @map("created_at")
+  course    Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student   User            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, state])
+  @@index([studentId, state])
+  @@map("enrollments")
+}
+
+enum LessonStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+  LOCKED
+  CANCELLED
+}
+
+// "Lesson" == ClassSession in spec section 3 (section 18/19 calls it lesson).
+model Lesson {
+  id                      String       @id @default(uuid()) @db.Uuid
+  courseId                String       @map("course_id") @db.Uuid
+  teacherId               String       @map("teacher_id") @db.Uuid
+  title                   String?
+  room                    String?
+  startsAt                DateTime     @map("starts_at")
+  scheduledEndAt          DateTime     @map("scheduled_end_at")
+  actualStartedAt         DateTime?    @map("actual_started_at")
+  endedAt                 DateTime?    @map("ended_at")
+  lockedAt                DateTime?    @map("locked_at")
+  status                  LessonStatus @default(DRAFT)
+  // Server-only CSPRNG secret used to derive marker IDs. Never serialised to clients.
+  sessionSecret           String?      @map("session_secret")
+  joinToken               String?      @unique @map("join_token")
+  markerEpoch             DateTime?    @map("marker_epoch")
+  markerRotationSeconds   Int          @default(20) @map("marker_rotation_seconds")
+  markerPolicyVersion     Int          @default(1) @map("marker_policy_version")
+  attendancePolicyVersion Int?         @map("attendance_policy_version")
+  // Snapshot of the policy at start time so later policy changes never re-grade a running lesson.
+  lateAfterSeconds        Int?         @map("late_after_seconds")
+  checkinCloseAfterSeconds Int?        @map("checkin_close_after_seconds")
+  graceMs                 Int?         @map("grace_ms")
+  endReason               String?      @map("end_reason")
+  createdAt               DateTime     @default(now()) @map("created_at")
+  updatedAt               DateTime     @updatedAt @map("updated_at")
+
+  course      Course                @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacher     User                  @relation("LessonTeacher", fields: [teacherId], references: [id])
+  attendances Attendance[]
+  challenges  AttendanceChallenge[]
+  requests    AttendanceRequest[]
+
+  @@index([courseId, startsAt])
+  @@index([teacherId, startsAt])
+  @@index([status])
+  @@map("lessons")
+}
+
+enum ChallengeStatus {
+  ACTIVE
+  CONSUMED
+  REVOKED
+  EXPIRED
+}
+
+model AttendanceChallenge {
+  id              String          @id @default(uuid()) @db.Uuid
+  lessonId        String          @map("lesson_id") @db.Uuid
+  userId          String          @map("user_id") @db.Uuid
+  deviceSessionId String          @map("device_session_id") @db.Uuid
+  nonceHash       String          @map("nonce_hash")
+  status          ChallengeStatus @default(ACTIVE)
+  attempts        Int             @default(0)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  expiresAt       DateTime        @map("expires_at")
+  consumedAt      DateTime?       @map("consumed_at")
+  lesson          Lesson          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceSession   DeviceSession   @relation(fields: [deviceSessionId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId, userId, status])
+  @@index([deviceSessionId, status])
+  @@map("attendance_challenges")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  MANUAL_PRESENT
+  MANUAL_LATE
+  EXCUSED
+  REMOVED_FROM_SESSION
+}
+
+enum EvidenceType {
+  APRILTAG
+  MANUAL
+  SYSTEM
+}
+
+model Attendance {
+  id              String           @id @default(uuid()) @db.Uuid
+  lessonId        String           @map("lesson_id") @db.Uuid
+  studentId       String           @map("student_id") @db.Uuid
+  status          AttendanceStatus
+  verifiedAt      DateTime?        @map("verified_at")
+  latenessSeconds Int?             @map("lateness_seconds")
+  evidenceType    EvidenceType     @map("evidence_type")
+  deviceSessionId String?          @map("device_session_id") @db.Uuid
+  policyVersion   Int?             @map("policy_version")
+  graceUsed       Boolean          @default(false) @map("grace_used")
+  manuallyCorrected Boolean        @default(false) @map("manually_corrected")
+  lastReason      String?          @map("last_reason")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  lesson          Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student         User             @relation("AttendanceStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  events          AttendanceEvent[]
+  requests        AttendanceRequest[]
+
+  @@unique([lessonId, studentId])
+  @@index([studentId])
+  @@map("attendances")
+}
+
+model AttendanceEvent {
+  id           String            @id @default(uuid()) @db.Uuid
+  attendanceId String            @map("attendance_id") @db.Uuid
+  actorId      String?           @map("actor_id") @db.Uuid
+  action       String
+  oldStatus    AttendanceStatus? @map("old_status")
+  newStatus    AttendanceStatus? @map("new_status")
+  reason       String?
+  metadata     Json?
+  createdAt    DateTime          @default(now()) @map("created_at")
+  attendance   Attendance        @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  actor        User?             @relation("AttendanceEventActor", fields: [actorId], references: [id])
+
+  @@index([attendanceId, createdAt])
+  @@map("attendance_events")
+}
+
+enum RequestKind {
+  STUDENT_DISPUTE // student asks for a correction (spec: "Само заявка")
+  MANUAL_CHECKIN // student without a working camera asks the teacher for a manual check
+  TEACHER_CORRECTION // teacher correction that needs admin approval (optional policy)
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model AttendanceRequest {
+  id              String            @id @default(uuid()) @db.Uuid
+  kind            RequestKind
+  lessonId        String            @map("lesson_id") @db.Uuid
+  studentId       String            @map("student_id") @db.Uuid
+  attendanceId    String?           @map("attendance_id") @db.Uuid
+  authorId        String            @map("author_id") @db.Uuid
+  requestedStatus AttendanceStatus? @map("requested_status")
+  reason          String
+  status          RequestStatus     @default(PENDING)
+  reviewerId      String?           @map("reviewer_id") @db.Uuid
+  reviewNote      String?           @map("review_note")
+  reviewedAt      DateTime?         @map("reviewed_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  lesson          Lesson            @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student         User              @relation("RequestStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  author          User              @relation("RequestAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reviewer        User?             @relation("RequestReviewer", fields: [reviewerId], references: [id])
+  attendance      Attendance?       @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+
+  @@index([lessonId, status])
+  @@index([studentId, status])
+  @@map("attendance_requests")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  actorEmail String?  @map("actor_email")
+  actorRole  Role?    @map("actor_role")
+  action     String
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  reason     String?
+  metadata   Json?
+  ipCoarse   String?  @map("ip_coarse")
+  requestId  String?  @map("request_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
+
+model IdempotencyRecord {
+  id           String   @id @default(uuid()) @db.Uuid
+  key          String
+  userId       String   @map("user_id") @db.Uuid
+  scope        String
+  requestHash  String   @map("request_hash")
+  statusCode   Int?     @map("status_code")
+  responseBody Json?    @map("response_body")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, scope, key])
+  @@index([createdAt])
+  @@map("idempotency_records")
+}
+
+enum ImportStatus {
+  PREVIEW
+  COMMITTING
+  COMMITTED
+  FAILED
+}
+
+model ImportBatch {
+  id          String       @id @default(uuid()) @db.Uuid
+  createdById String       @map("created_by_id") @db.Uuid
+  fileName    String       @map("file_name")
+  fileHash    String       @map("file_hash")
+  status      ImportStatus @default(PREVIEW)
+  rows        Json
+  summary     Json?
+  report      Json?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  committedAt DateTime?    @map("committed_at")
+
+  @@index([createdById, createdAt])
+  @@map("import_batches")
+}
+
+// Versioned attendance policy (spec 4.3: "every rule change is a version of attendance_policy").
+model AttendancePolicy {
+  version                 Int      @id @default(autoincrement())
+  lateAfterSeconds        Int      @map("late_after_seconds")
+  checkinCloseAfterSeconds Int?    @map("checkin_close_after_seconds")
+  graceMs                 Int      @map("grace_ms")
+  createdById             String?  @map("created_by_id") @db.Uuid
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  @@map("attendance_policies")
+}
+
+// Admin-editable product settings (open questions in section 15). Values are JSON.
+model Setting {
+  key         String   @id
+  value       Json
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}

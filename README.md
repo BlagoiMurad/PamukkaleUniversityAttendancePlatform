@@ -4,7 +4,7 @@
 
 **Университетска уеб платформа за отчитане на присъствие с QR вход и AprilTag проверка от живата камера**
 
-![Status](https://img.shields.io/badge/статус-спецификация-blue)
+![Status](https://img.shields.io/badge/статус-в%20разработка-yellow)
 ![Spec](https://img.shields.io/badge/спецификация-FINAL%202.0-success)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white)
@@ -13,6 +13,7 @@
 ![Prisma](https://img.shields.io/badge/Prisma-2D3748?logo=prisma&logoColor=white)
 ![AprilTag](https://img.shields.io/badge/AprilTag-36h11-orange)
 
+[Стартиране](#-стартиране) •
 [Как работи](#-как-работи) •
 [Архитектура](#-архитектура) •
 [Правила](#-бизнес-правила) •
@@ -25,9 +26,60 @@
 ---
 
 > [!NOTE]
-> Проектът е във фаза **спецификация**. Пълният документ е
-> [`University_Attendance_Platform_FINAL_BG_v2_1.docx`](University_Attendance_Platform_FINAL_BG_v2_1.docx).
-> При противоречие има предимство раздел 18 „Финален и задължителен потребителски поток“ (FINAL 2.0, 17.11.2026).
+> Работеща първа версия: `apps/api` (NestJS + Prisma + PostgreSQL) и `apps/web` (Next.js).
+> Спецификацията е [`University_Attendance_Platform_FINAL_BG_v2_1.docx`](University_Attendance_Platform_FINAL_BG_v2_1.docx);
+> при противоречие има предимство раздел 18. Решенията по отворените въпроси са в
+> [`docs/DECISIONS.md`](docs/DECISIONS.md), статусът на задачите в [`docs/PLAN.md`](docs/PLAN.md).
+
+## 🚀 Стартиране
+
+### С Docker (препоръчително)
+
+```bash
+cp .env.example .env            # задайте JWT_ACCESS_SECRET (openssl rand -base64 48)
+docker compose up --build
+docker compose exec api npx ts-node --transpile-only prisma/seed.ts   # демо данни (по желание)
+```
+
+Отворете https://localhost:8443 (локален сертификат на Caddy, приемете го веднъж). Имейлите се виждат в Mailpit на http://localhost:8025.
+За тест с истински телефон в същата Wi-Fi мрежа задайте `PUBLIC_WEB_URL=https://<LAN-IP>:8443`: камерата работи само по HTTPS.
+
+### За разработка
+
+Изисква Node 22 и PostgreSQL 16 (Redis е по желание).
+
+```bash
+npm install
+cp apps/api/.env.example apps/api/.env      # проверете DATABASE_URL
+npm run db:migrate && npm run db:seed
+npm run dev:api                              # http://localhost:4000 (Swagger: /api/docs)
+npm run dev:web                              # http://localhost:3000
+```
+
+### Демо акаунти (след seed)
+
+Парола за всички: `Demo!Pass2026`
+
+| Роля | Имейл |
+|------|-------|
+| Администратор | admin@pau.edu.tr |
+| Преподавател | teacher@pau.edu.tr, teacher2@pau.edu.tr |
+| Студент | student@pau.edu.tr, student02@pau.edu.tr … student30@pau.edu.tr |
+
+Пробвайте: влезте като преподавател, отворете курс, натиснете **Start lesson**, после **Open projector**.
+От телефон сканирайте QR кода, влезте като студент и насочете камерата към AprilTag маркера.
+
+### Тестове
+
+```bash
+createdb attendance_test
+(cd apps/api && DATABASE_URL=postgresql://…/attendance_test npx prisma migrate deploy)
+npm test
+```
+
+API e2e тестовете покриват границата 10:00 (точно 10:00 е PRESENT, 10:00.001 е LATE), 2-секундния толеранс
+на маркера, повторно и паралелно сканиране, прекратен стар телефон, отписан и премахнат студент,
+приключване на часа по време на сканиране и 403 за чужд преподавател.
 
 ## 📌 Накратко
 
