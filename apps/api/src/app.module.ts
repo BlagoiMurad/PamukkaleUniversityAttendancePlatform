@@ -30,11 +30,15 @@ import { LessonsController } from './lessons/lessons.controller';
 import { AttendanceService } from './attendance/attendance.service';
 import { HealthController } from './health/health.controller';
 import { JobsService } from './jobs/jobs.service';
+import { ReportsService } from './reports/reports.service';
+import { ReportsController } from './reports/reports.controller';
+import { RequestsService } from './requests/requests.service';
+import { RequestsController } from './requests/requests.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env'] }),
-    ThrottlerModule.forRoot({ throttlers: [{ name: 'default', ttl: 60_000, limit: process.env.NODE_ENV === 'test' ? 100_000 : 600 }] }),
+    ThrottlerModule.forRoot({ throttlers: [{ name: 'default', ttl: 60_000, limit: 600 }], skipIf: () => process.env.NODE_ENV === 'test' && process.env.THROTTLE_IN_TESTS !== '1' }),
     ScheduleModule.forRoot(),
     PrismaModule,
   ],
@@ -47,6 +51,8 @@ import { JobsService } from './jobs/jobs.service';
     SettingsController,
     AuditController,
     HealthController,
+    ReportsController,
+    RequestsController,
   ],
   providers: [
     ClockService,
@@ -65,6 +71,8 @@ import { JobsService } from './jobs/jobs.service';
     LessonsService,
     AttendanceService,
     JobsService,
+    ReportsService,
+    RequestsService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

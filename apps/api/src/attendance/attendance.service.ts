@@ -73,7 +73,13 @@ export class AttendanceService {
     return {
       ...base,
       canCheckIn: !reason && !attendance,
-      reason: attendance ? (attendance.status === 'REMOVED_FROM_SESSION' ? 'STUDENT_REMOVED' : 'ALREADY_RECORDED') : reason,
+      reason: !attendance
+        ? reason
+        : attendance.status === 'REMOVED_FROM_SESSION'
+          ? 'STUDENT_REMOVED'
+          : attendance.status === 'ABSENT' && attendance.evidenceType === 'SYSTEM' && reason
+            ? reason
+            : 'ALREADY_RECORDED',
       attendance: attendance ? attendanceView(attendance) : null,
       manualCheckin: { allowed: settings.allowManualCheckinRequests, pending: pendingManual },
     };
@@ -141,6 +147,8 @@ export class AttendanceService {
     const existing = await this.prisma.attendance.findUnique({ where: { lessonId_studentId: { lessonId, studentId: user.id } } });
     if (existing) {
       if (existing.status === 'REMOVED_FROM_SESSION') throw new AppError('STUDENT_REMOVED', 'You were removed from this lesson by the teacher');
+      // ABSENT rows are written when the lesson ends; a scan arriving after that must not look like success
+      if (existing.status === 'ABSENT' && existing.evidenceType === 'SYSTEM') throw new AppError('LESSON_ENDED', 'The lesson has ended');
       return { status: existing.status, verifiedAt: existing.verifiedAt, attendanceId: existing.id, alreadyRecorded: true, latenessSeconds: existing.latenessSeconds };
     }
     if (challenge.status === 'CONSUMED') throw new AppError('CHALLENGE_USED', 'This scan was already used');
