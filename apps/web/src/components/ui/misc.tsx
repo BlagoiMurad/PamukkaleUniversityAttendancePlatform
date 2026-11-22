@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EmptyArt } from '../illustrations';
 
 export const Skeleton = ({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) => <div className={cn('animate-pulse rounded-md bg-muted', className)} {...p} />;
 
@@ -15,9 +16,10 @@ export function Spinner({ className, label }: { className?: string; label?: stri
 
 export function EmptyState({ icon: Icon, title, description, action }: { icon?: React.ComponentType<{ className?: string }>; title: string; description?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-10 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-8 text-center sm:p-10">
+      <EmptyArt className="h-24 w-36" />
       {Icon && (
-        <div className="rounded-full bg-accent p-3 text-accent-foreground">
+        <div className="-mt-2 rounded-full bg-accent p-3 text-accent-foreground">
           <Icon className="size-6" />
         </div>
       )}
@@ -52,7 +54,7 @@ export function Alert({ variant = 'info', title, children, icon: Icon, className
 export function Stat({ label, value, hint, icon: Icon, tone = 'default' }: { label: string; value: React.ReactNode; hint?: React.ReactNode; icon?: React.ComponentType<{ className?: string }>; tone?: 'default' | 'success' | 'warning' | 'destructive' }) {
   const toneCls = { default: 'bg-primary/10 text-primary', success: 'bg-success/10 text-success', warning: 'bg-warning/10 text-warning', destructive: 'bg-destructive/10 text-destructive' }[tone];
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
+    <div className="elevate elevate-hover sheen overflow-hidden rounded-xl border bg-card p-4">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm text-muted-foreground">{label}</p>
         {Icon && (
@@ -61,7 +63,7 @@ export function Stat({ label, value, hint, icon: Icon, tone = 'default' }: { lab
           </span>
         )}
       </div>
-      <p className="mt-1 text-2xl font-bold tabular">{value}</p>
+      <p className="mt-1 text-3xl font-bold tracking-tight tabular">{value}</p>
       {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
     </div>
   );

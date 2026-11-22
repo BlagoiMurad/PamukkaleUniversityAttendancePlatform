@@ -1,9 +1,9 @@
 'use client';
 import * as React from 'react';
-import { bg, en, type MessageKey } from './messages';
+import { bg, en, tr, type MessageKey } from './messages';
 
-export type Locale = 'en' | 'bg';
-const dictionaries: Record<Locale, Partial<Record<MessageKey, string>>> = { en, bg };
+export type Locale = 'en' | 'bg' | 'tr';
+const dictionaries: Record<Locale, Partial<Record<MessageKey, string>>> = { en, bg, tr };
 
 interface I18nValue {
   locale: Locale;
@@ -18,8 +18,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     try {
       const saved = localStorage.getItem('locale') as Locale | null;
-      if (saved === 'en' || saved === 'bg') setLocaleState(saved);
-      else if (navigator.language?.toLowerCase().startsWith('bg')) setLocaleState('bg');
+      if (saved === 'en' || saved === 'bg' || saved === 'tr') setLocaleState(saved);
+      else {
+        const nav = navigator.language?.toLowerCase() ?? '';
+        if (nav.startsWith('bg')) setLocaleState('bg');
+        else if (nav.startsWith('tr')) setLocaleState('tr');
+      }
     } catch {}
   }, []);
   React.useEffect(() => {

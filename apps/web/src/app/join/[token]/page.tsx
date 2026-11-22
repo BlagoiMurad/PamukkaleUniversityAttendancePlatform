@@ -3,7 +3,7 @@ import * as React from 'react';
 import { use } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Camera, CameraOff, CheckCircle2, Clock, Flashlight, Hand, Loader2, ScanLine, ShieldCheck, WifiOff, XCircle } from 'lucide-react';
+import { AlertTriangle, Camera, CameraOff, CheckCircle2, Clock, Flashlight, Hand, Loader2, ScanLine, ShieldCheck, WifiOff, XCircle, ZoomIn, ZoomOut } from 'lucide-react';
 import { Logo } from '@/components/brand';
 import { LanguageSwitch } from '@/components/language-switch';
 import { Button } from '@/components/ui/button';
@@ -205,12 +205,40 @@ function Join({ token }: { token: string }) {
       ) : (
         <>
           <div className={cn('relative overflow-hidden rounded-2xl bg-black shadow-lg', scanner.state === 'running' || scanner.state === 'starting' ? 'aspect-[3/4] sm:aspect-video' : 'hidden')}>
-            <video ref={scanner.videoRef} className="size-full object-cover" playsInline muted aria-label={t('join.pointCamera')} />
+            <video
+              ref={scanner.videoRef}
+              className="size-full object-cover transition-transform duration-150"
+              style={{ transform: `scale(${scanner.previewScale})` }}
+              playsInline
+              muted
+              aria-label={t('join.pointCamera')}
+            />
             <div className="pointer-events-none absolute inset-0 grid place-items-center">
               <div className="relative size-[62%] max-w-[340px] rounded-2xl border-4 border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,.35)]">
                 <div className="absolute inset-x-3 top-1/2 h-0.5 animate-scan-line bg-[hsl(182_80%_55%)] shadow-[0_0_12px_hsl(182_80%_55%)]" />
               </div>
             </div>
+            {scanner.state === 'running' && scanner.zoom.supported && (
+              <div className="absolute inset-x-0 bottom-20 flex items-center gap-3 px-5 text-white">
+                <ZoomOut className="size-5 shrink-0 opacity-80" aria-hidden />
+                <input
+                  type="range"
+                  min={scanner.zoom.min}
+                  max={scanner.zoom.max}
+                  step={scanner.zoom.step}
+                  value={scanner.zoom.value}
+                  onChange={(e) => scanner.setZoom(Number(e.target.value))}
+                  aria-label={t('join.zoom')}
+                  className="h-11 flex-1 cursor-pointer appearance-none bg-transparent
+                    [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-white/35
+                    [&::-webkit-slider-thumb]:-mt-[11px] [&::-webkit-slider-thumb]:size-7 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-[hsl(182_80%_55%)] [&::-webkit-slider-thumb]:shadow-lg
+                    [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-white/35
+                    [&::-moz-range-thumb]:size-7 [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-[hsl(182_80%_55%)]"
+                />
+                <ZoomIn className="size-5 shrink-0 opacity-80" aria-hidden />
+                <span className="w-11 shrink-0 text-right text-sm font-semibold tabular-nums">{scanner.zoom.value.toFixed(1)}×</span>
+              </div>
+            )}
             <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/80 to-transparent p-4 text-white">
               <p className="text-sm font-medium" aria-live="polite">
                 {phase.kind === 'verifying' ? (

@@ -74,7 +74,7 @@ export default function UsersPage() {
           <div className="p-5"><EmptyState title="—" /></div>
         ) : (
           <Table>
-            <THead><TR><TH className="pl-5">{t('common.name')}</TH><TH>{t('common.status')}</TH><TH>ID</TH><TH>Last sign-in</TH><TH className="pr-5 text-right">{t('common.actions')}</TH></TR></THead>
+            <THead><TR><TH className="pl-5">{t('common.name')}</TH><TH>{t('common.status')}</TH><TH className="hidden md:table-cell">ID</TH><TH className="hidden lg:table-cell">Last sign-in</TH><TH className="pr-5 text-right">{t('common.actions')}</TH></TR></THead>
             <TBody>
               {users.data.items.map((u: any) => (
                 <TR key={u.id}>
@@ -83,8 +83,8 @@ export default function UsersPage() {
                     <p className="text-xs text-muted-foreground">{u.email}</p>
                   </TD>
                   <TD><Badge variant={statusVariant[u.status]}>{u.status.toLowerCase()}</Badge>{u.activeSessions > 0 && <span className="ml-2 text-xs text-muted-foreground">{u.activeSessions} device(s)</span>}</TD>
-                  <TD className="tabular text-sm text-muted-foreground">{u.studentProfile?.facultyNumber ?? u.universityId ?? '—'}</TD>
-                  <TD className="text-sm text-muted-foreground">{u.lastLoginAt ? fmt.relative(u.lastLoginAt) : '—'}</TD>
+                  <TD className="tabular hidden text-sm text-muted-foreground md:table-cell">{u.studentProfile?.facultyNumber ?? u.universityId ?? '—'}</TD>
+                  <TD className="hidden text-sm text-muted-foreground lg:table-cell">{u.lastLoginAt ? fmt.relative(u.lastLoginAt) : '—'}</TD>
                   <TD className="pr-5">
                     <div className="flex justify-end gap-1">
                       {u.status === 'INVITED' && (

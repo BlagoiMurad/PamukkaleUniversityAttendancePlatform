@@ -1,10 +1,13 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import { CurrentUser, ReqMeta, RequestMeta, Roles } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import type { AuthUser } from '../common/auth-user';
 import { UsersService } from './users.service';
+import { ImportService, type UploadedSpreadsheet } from './import.service';
+import { AppError } from '../common/errors';
 
 const opt = (s: z.ZodString) => s.optional().nullable();
 export const createUserSchema = z.object({
@@ -39,7 +42,10 @@ const updateUserSchema = z.object({
 @Roles('ADMIN')
 @Controller('admin/users')
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly imports: ImportService,
+  ) {}
 
   @Get()
   list(@Query('q') q?: string, @Query('role') role?: string, @Query('status') status?: string, @Query('page') page?: string, @Query('pageSize') pageSize?: string) {
@@ -71,5 +77,23 @@ export class UsersController {
   @Post(':id/resend-invite')
   resend(@CurrentUser() actor: AuthUser, @Param('id', ParseUUIDPipe) id: string, @ReqMeta() meta: RequestMeta) {
     return this.users.resendInvite(id, actor, meta);
+  }
+
+  /**
+   * Bulk import of students from the registry's own spreadsheet. Admin only: it creates accounts
+   * and hands out passwords, which is not something a teacher should be able to do.
+   */
+  @HttpCode(200)
+  @Post('import/preview')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  previewImport(@UploadedFile() file: UploadedSpreadsheet, @CurrentUser() user: AuthUser, @ReqMeta() meta: RequestMeta) {
+    if (!file) throw new AppError('VALIDATION_FAILED', 'Attach an .xlsx or .csv file');
+    return this.imports.preview(file, user, meta);
+  }
+
+  @HttpCode(200)
+  @Post('import/:batchId/commit')
+  commitImport(@Param('batchId', ParseUUIDPipe) batchId: string, @CurrentUser() user: AuthUser, @ReqMeta() meta: RequestMeta) {
+    return this.imports.commit(batchId, user, meta);
   }
 }

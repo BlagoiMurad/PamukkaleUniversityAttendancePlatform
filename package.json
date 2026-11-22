@@ -11,7 +11,8 @@
     "node": ">=20.11"
   },
   "scripts": {
-    "dev": "npm run dev --workspaces --if-present",
+    "dev": "trap 'kill 0' EXIT INT TERM; PORT=4000 npm run dev:api & PORT=3000 npm run dev:web & wait",
+    "dev:lan": "trap 'kill 0' EXIT INT TERM; PORT=4000 npm run dev:api & PORT=3000 npm run dev:https -w apps/web & wait",
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
     "build": "npm run build -w apps/api && npm run build -w apps/web",

@@ -6,6 +6,7 @@ services:
       POSTGRES_USER: attendance
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-attendance}
       POSTGRES_DB: attendance
+    ports: ["5432:5432"] # so a locally run API (npm run dev) can reach it too
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U attendance"]

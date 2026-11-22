@@ -2,13 +2,23 @@
 import { Languages, Moon, Sun } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { Button } from './ui/button';
+import type { Locale } from '@/lib/i18n';
+
+/** Cycles through the languages the university actually uses. */
+const LOCALES: Locale[] = ['en', 'bg', 'tr'];
 
 export function LanguageSwitch() {
   const { locale, setLocale, t } = useI18n();
   return (
     <div className="flex items-center gap-1">
-      <Button variant="ghost" size="sm" onClick={() => setLocale(locale === 'en' ? 'bg' : 'en')} aria-label={t('nav.language')}>
-        <Languages /> {locale === 'en' ? 'BG' : 'EN'}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setLocale(LOCALES[(LOCALES.indexOf(locale) + 1) % LOCALES.length])}
+        aria-label={t('nav.language')}
+        title={t('nav.language')}
+      >
+        <Languages /> {locale.toUpperCase()}
       </Button>
       <ThemeToggle />
     </div>

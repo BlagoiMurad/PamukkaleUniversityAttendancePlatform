@@ -81,8 +81,17 @@ export class CoursesController {
   /** Central student directory for picking students (teachers cannot edit global profiles). */
   @Roles('ADMIN', 'TEACHER')
   @Get('directory/students')
-  searchStudents(@Query('q') q = '', @Query('take') take?: string) {
-    return this.courses.searchStudents(q, Math.min(Number(take) || 20, 50));
+  searchStudents(
+    @Query('q') q = '',
+    @Query('take') take?: string,
+    @Query('year') year?: string,
+    @Query('programme') programme?: string,
+  ) {
+    const parsedYear = year !== undefined && year !== '' ? Number(year) : undefined;
+    return this.courses.searchStudents(q, Math.min(Number(take) || 50, 200), {
+      year: Number.isInteger(parsedYear) ? parsedYear : undefined,
+      programme: programme?.trim() || undefined,
+    });
   }
 
   @Roles('ADMIN', 'TEACHER')

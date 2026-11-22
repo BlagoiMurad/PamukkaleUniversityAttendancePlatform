@@ -4,51 +4,61 @@
 
 @layer base {
   :root {
-    --background: 200 33% 98%;
-    --foreground: 200 30% 12%;
+    /* Pamukkale University mark: #1B4580 navy, #357ABD blue. Red is the flag's #E30A17,
+       kept for destructive actions and single accents so it never competes with the blues. */
+    --brand-navy: 215 65% 30%;
+    --brand-blue: 210 56% 47%;
+    --brand-red: 356 92% 46%;
+
+    --background: 210 40% 98%;
+    --foreground: 215 45% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 200 30% 12%;
-    --primary: 184 84% 32%;
+    --card-foreground: 215 45% 14%;
+    --primary: 210 56% 42%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 190 30% 94%;
-    --secondary-foreground: 196 40% 18%;
-    --muted: 200 20% 95%;
-    --muted-foreground: 200 10% 38%;
-    --accent: 184 60% 92%;
-    --accent-foreground: 186 70% 20%;
-    --destructive: 0 72% 46%;
+    --secondary: 210 40% 94%;
+    --secondary-foreground: 215 50% 22%;
+    --muted: 210 30% 95%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 210 60% 93%;
+    --accent-foreground: 215 65% 26%;
+    --destructive: 356 92% 46%;
     --destructive-foreground: 0 0% 100%;
-    --success: 152 63% 32%;
+    --success: 152 58% 33%;
     --success-foreground: 0 0% 100%;
     --warning: 35 92% 42%;
     --warning-foreground: 0 0% 100%;
-    --border: 200 18% 88%;
-    --input: 200 18% 84%;
-    --ring: 184 84% 32%;
-    --radius: 0.8rem;
+    --border: 210 26% 88%;
+    --input: 210 26% 82%;
+    --ring: 210 56% 47%;
+    --radius: 0.85rem;
   }
   .dark {
-    --background: 200 30% 7%;
-    --foreground: 190 20% 94%;
-    --card: 200 28% 10%;
-    --card-foreground: 190 20% 94%;
-    --primary: 182 70% 45%;
-    --primary-foreground: 200 40% 8%;
-    --secondary: 200 22% 16%;
-    --secondary-foreground: 190 20% 92%;
-    --muted: 200 22% 14%;
-    --muted-foreground: 200 12% 66%;
-    --accent: 186 40% 18%;
-    --accent-foreground: 182 60% 85%;
-    --destructive: 0 70% 56%;
+    --brand-navy: 213 50% 62%;
+    --brand-blue: 208 70% 62%;
+    --brand-red: 356 80% 60%;
+
+    --background: 216 40% 8%;
+    --foreground: 210 30% 94%;
+    --card: 215 36% 11%;
+    --card-foreground: 210 30% 94%;
+    --primary: 208 70% 58%;
+    --primary-foreground: 216 45% 9%;
+    --secondary: 215 28% 18%;
+    --secondary-foreground: 210 30% 92%;
+    --muted: 215 28% 15%;
+    --muted-foreground: 213 16% 68%;
+    --accent: 213 40% 22%;
+    --accent-foreground: 208 70% 84%;
+    --destructive: 356 80% 58%;
     --destructive-foreground: 0 0% 100%;
-    --success: 152 55% 45%;
-    --success-foreground: 200 40% 8%;
-    --warning: 38 92% 55%;
-    --warning-foreground: 200 40% 8%;
-    --border: 200 20% 20%;
-    --input: 200 20% 24%;
-    --ring: 182 70% 45%;
+    --success: 152 52% 46%;
+    --success-foreground: 216 45% 9%;
+    --warning: 38 92% 56%;
+    --warning-foreground: 216 45% 9%;
+    --border: 215 24% 22%;
+    --input: 215 24% 26%;
+    --ring: 208 70% 58%;
   }
   * {
     @apply border-border;
@@ -64,12 +74,100 @@
 
 @layer utilities {
   .bg-hero {
-    background-image: radial-gradient(1200px 500px at 10% -10%, hsl(184 84% 32% / 0.16), transparent 60%),
-      radial-gradient(900px 400px at 100% 0%, hsl(196 80% 60% / 0.14), transparent 60%);
+    background-image: radial-gradient(1200px 520px at 8% -12%, hsl(var(--brand-blue) / 0.18), transparent 62%),
+      radial-gradient(900px 420px at 100% 0%, hsl(var(--brand-navy) / 0.16), transparent 60%),
+      radial-gradient(600px 300px at 80% 100%, hsl(var(--brand-red) / 0.07), transparent 65%);
   }
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  /* Layered, low-contrast elevation reads as depth without the muddy grey of a single blur. */
+  .elevate {
+    box-shadow:
+      0 1px 2px hsl(200 30% 12% / 0.04),
+      0 4px 12px -4px hsl(200 30% 12% / 0.07),
+      0 12px 32px -12px hsl(200 30% 12% / 0.08);
+  }
+  .dark .elevate {
+    box-shadow:
+      0 1px 2px hsl(0 0% 0% / 0.3),
+      0 8px 24px -8px hsl(0 0% 0% / 0.45);
+  }
+  .elevate-hover {
+    transition: box-shadow 180ms ease, transform 180ms ease;
+  }
+  .elevate-hover:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 2px 4px hsl(200 30% 12% / 0.05),
+      0 8px 20px -6px hsl(200 30% 12% / 0.10),
+      0 20px 44px -16px hsl(200 30% 12% / 0.12);
+  }
+  /* Hairline highlight along the top edge, the thing that makes a card look "lit". */
+  .sheen {
+    position: relative;
+  }
+  .sheen::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.5), transparent);
+    pointer-events: none;
+  }
+  .dark .sheen::before {
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.08), transparent);
+  }
+}
+
+@layer utilities {
+  /* Brand gradients, used for headline text and the primary surfaces. */
+  .brand-gradient {
+    background-image: linear-gradient(135deg, hsl(var(--brand-navy)), hsl(var(--brand-blue)));
+  }
+  .brand-text {
+    background-image: linear-gradient(120deg, hsl(var(--brand-navy)), hsl(var(--brand-blue)) 55%, hsl(var(--brand-red)) 140%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* A slow drift keeps large illustrations alive without pulling the eye off the content. */
+  .float-slow { animation: float 7s ease-in-out infinite; }
+  .float-slower { animation: float 11s ease-in-out infinite; }
+  .float-delay { animation-delay: -3.5s; }
+  .spin-slow { animation: spin 26s linear infinite; transform-origin: center; }
+  .pulse-ring { animation: pulse-ring 2.4s cubic-bezier(.22,.61,.36,1) infinite; transform-origin: center; }
+  .draw-in { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.5s ease forwards; }
+  .rise-in { animation: rise .5s cubic-bezier(.22,.9,.3,1) both; }
+  .rise-1 { animation-delay: .05s; }
+  .rise-2 { animation-delay: .12s; }
+  .rise-3 { animation-delay: .19s; }
+  .rise-4 { animation-delay: .26s; }
+  .shimmer {
+    background-image: linear-gradient(100deg, transparent 20%, hsl(0 0% 100% / 0.22) 45%, transparent 70%);
+    background-size: 220% 100%;
+    animation: shimmer 2.8s linear infinite;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) }
+  50% { transform: translateY(-10px) }
+}
+@keyframes pulse-ring {
+  0% { transform: scale(.82); opacity: .75 }
+  70% { transform: scale(1.25); opacity: 0 }
+  100% { transform: scale(1.25); opacity: 0 }
+}
+@keyframes draw {
+  to { stroke-dashoffset: 0 }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px) }
+  to { opacity: 1; transform: none }
+}
+@keyframes shimmer {
+  to { background-position: -220% 0 }
 }
 
 @media (prefers-reduced-motion: reduce) {

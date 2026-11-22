@@ -220,29 +220,50 @@ export class CoursesService {
     return { ok: true };
   }
 
-  async searchStudents(q: string, take: number) {
+  /**
+   * Student picker behind "add students to a course": free-text search plus the
+   * year / programme filters the teacher narrows the list with. `years` and
+   * `programmes` are the facets the UI renders its filter dropdowns from, so they
+   * describe the whole directory and are deliberately not narrowed by the filters.
+   */
+  async searchStudents(q: string, take: number, filters: { year?: number; programme?: string } = {}) {
     const term = q.trim();
-    const items = await this.prisma.user.findMany({
-      where: {
-        role: 'STUDENT',
-        status: { in: ['ACTIVE', 'INVITED'] },
-        ...(term
-          ? {
-              OR: [
-                { name: { contains: term, mode: 'insensitive' } },
-                { email: { contains: term, mode: 'insensitive' } },
-                { universityId: { contains: term } },
-                { studentProfile: { facultyNumber: { contains: term } } },
-                { studentProfile: { group: { equals: term, mode: 'insensitive' } } },
-              ],
-            }
-          : {}),
-      },
-      select: studentSelect,
-      orderBy: { name: 'asc' },
-      take,
-    });
-    return { items };
+    const where: Prisma.UserWhereInput = {
+      role: 'STUDENT',
+      status: { in: ['ACTIVE', 'INVITED'] },
+      ...(filters.year !== undefined || filters.programme
+        ? {
+            studentProfile: {
+              ...(filters.year !== undefined ? { year: filters.year } : {}),
+              ...(filters.programme ? { programme: { equals: filters.programme, mode: 'insensitive' as const } } : {}),
+            },
+          }
+        : {}),
+      ...(term
+        ? {
+            OR: [
+              { name: { contains: term, mode: 'insensitive' as const } },
+              { email: { contains: term, mode: 'insensitive' as const } },
+              { universityId: { contains: term } },
+              { studentProfile: { facultyNumber: { contains: term } } },
+              { studentProfile: { group: { equals: term, mode: 'insensitive' as const } } },
+            ],
+          }
+        : {}),
+    };
+
+    const [items, total, facets] = await Promise.all([
+      this.prisma.user.findMany({ where, select: studentSelect, orderBy: { name: 'asc' }, take }),
+      this.prisma.user.count({ where }),
+      this.prisma.studentProfile.findMany({
+        where: { user: { role: 'STUDENT', status: { in: ['ACTIVE', 'INVITED'] } } },
+        select: { year: true, programme: true },
+      }),
+    ]);
+
+    const years = [...new Set(facets.map((f) => f.year).filter((y): y is number => y !== null))].sort((a, b) => a - b);
+    const programmes = [...new Set(facets.map((f) => f.programme).filter((p): p is string => !!p))].sort();
+    return { items, total, truncated: total > items.length, years, programmes };
   }
 
   async searchTeachers(q: string) {

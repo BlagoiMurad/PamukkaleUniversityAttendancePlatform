@@ -34,23 +34,42 @@ export function StudentHistoryTable({ limit }: { limit?: number }) {
             <TH className="pl-5">{t('lesson.startsAt')}</TH>
             <TH>{t('nav.courses')}</TH>
             <TH>{t('common.status')}</TH>
-            <TH>{t('lesson.checkedIn')}</TH>
-            <TH className="pr-5 text-right" />
+            {/* The action moves into the status cell on phones, so this column disappears. */}
+            <TH className="hidden sm:table-cell">{t('lesson.checkedIn')}</TH>
+            <TH className="hidden pr-5 text-right sm:table-cell" />
           </TR>
         </THead>
         <TBody>
           {items.map((a: any) => (
             <TR key={a.id}>
-              <TD className="pl-5"><p className="font-medium">{fmt.weekday(a.lesson.startsAt)}</p><p className="text-xs text-muted-foreground">{fmt.time(a.lesson.startsAt)}</p></TD>
-              <TD><p className="font-medium">{a.lesson.course.code}</p><p className="text-xs text-muted-foreground">{a.lesson.title || a.lesson.course.title}</p></TD>
-              <TD><AttendanceBadge status={a.status} /></TD>
-              <TD className="tabular text-sm text-muted-foreground">{a.verifiedAt ? fmt.timeSec(a.verifiedAt) : '—'}</TD>
-              <TD className="pr-5 text-right">
+              <TD className="pl-3 sm:pl-5"><p className="font-medium">{fmt.weekday(a.lesson.startsAt)}</p><p className="text-xs text-muted-foreground">{fmt.time(a.lesson.startsAt)}</p></TD>
+              <TD className="max-w-[8rem] sm:max-w-none"><p className="font-medium">{a.lesson.course.code}</p><p className="truncate text-xs text-muted-foreground">{a.lesson.title || a.lesson.course.title}</p></TD>
+              <TD>
+                <AttendanceBadge status={a.status} />
+                {a.verifiedAt && <span className="tabular mt-1 block text-xs text-muted-foreground sm:hidden">{fmt.timeSec(a.verifiedAt)}</span>}
+                <span className="mt-1 block sm:hidden">
+                  {a.dispute ? (
+                    <Badge variant={a.dispute.status === 'PENDING' ? 'warning' : a.dispute.status === 'APPROVED' ? 'success' : 'muted'}>{a.dispute.status.toLowerCase()}</Badge>
+                  ) : (
+                    a.status !== 'PRESENT' && a.status !== 'MANUAL_PRESENT' && (
+                      <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setDispute(a)}>
+                        {t('student.dispute')}
+                      </button>
+                    )
+                  )}
+                </span>
+              </TD>
+              <TD className="tabular hidden text-sm text-muted-foreground sm:table-cell">{a.verifiedAt ? fmt.timeSec(a.verifiedAt) : '—'}</TD>
+              <TD className="hidden pr-5 text-right sm:table-cell">
                 {a.dispute ? (
                   <Badge variant={a.dispute.status === 'PENDING' ? 'warning' : a.dispute.status === 'APPROVED' ? 'success' : 'muted'}>{a.dispute.status.toLowerCase()}</Badge>
                 ) : (
                   a.status !== 'PRESENT' && a.status !== 'MANUAL_PRESENT' && (
-                    <Button size="sm" variant="ghost" onClick={() => setDispute(a)}><MessageSquareWarning /> {t('student.dispute')}</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setDispute(a)} aria-label={t('student.dispute')}>
+                      <MessageSquareWarning />
+                      {/* The label alone is wider than a phone column allows. */}
+                      <span className="hidden sm:inline">{t('student.dispute')}</span>
+                    </Button>
                   )
                 )}
               </TD>

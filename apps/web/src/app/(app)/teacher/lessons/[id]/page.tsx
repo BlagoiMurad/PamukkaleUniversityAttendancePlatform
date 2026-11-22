@@ -142,17 +142,17 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
       )}
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+        <CardHeader className="gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="flex items-center gap-2"><Users className="size-4" /> {t('lesson.live')}</CardTitle>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 sm:shrink-0">
             {l.status === 'ACTIVE' && (
               <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex" aria-live="polite">
                 <span className={cn('size-2 rounded-full', connected ? 'bg-success' : 'bg-warning')} /> {connected ? t('lesson.connected') : t('lesson.reconnecting')}
               </span>
             )}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
               <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-              <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('lesson.filter')} className="h-9 w-48 pl-8 sm:w-64" aria-label={t('lesson.filter')} />
+              <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('lesson.filter')} className="h-9 w-full pl-8 sm:w-64" aria-label={t('lesson.filter')} />
             </div>
           </div>
         </CardHeader>

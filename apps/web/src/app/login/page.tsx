@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/input';
 import { Alert } from '@/components/ui/misc';
 import { api } from '@/lib/api';
+import { deviceFingerprint } from '@/lib/device';
+import { DeviceGate } from '@/components/device-gate';
 import { useT } from '@/lib/i18n';
 import { errorMessage } from '@/lib/errors';
 import { homeFor, type Role } from '@/lib/auth';
@@ -27,9 +29,13 @@ function LoginForm() {
   const qc = useQueryClient();
   const returnTo = params.get('returnTo');
   const [error, setError] = React.useState<string | null>(null);
-  const [mfaToken, setMfaToken] = React.useState<string | null>(null);
-  const [code, setCode] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  /** Set when the server says this browser must be confirmed, or is not the bound device. */
+  const [device, setDevice] = React.useState<
+    | { kind: 'bind'; setupToken: string }
+    | { kind: 'blocked'; code: string; boundLabel: string | null; requestToken: string | null; pending: boolean }
+    | null
+  >(null);
   const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
 
   const finish = async (res: { user: { role: Role }; mustChangePassword: boolean }) => {
@@ -44,8 +50,9 @@ function LoginForm() {
     setError(null);
     setBusy(true);
     try {
-      const res = await api('/auth/login', { body: values });
-      if (res.mfaRequired) setMfaToken(res.mfaToken);
+      const res = await api('/auth/login', { body: { ...values, fingerprint: deviceFingerprint() } });
+      if (res.deviceSetupRequired) setDevice({ kind: 'bind', setupToken: res.setupToken });
+      else if (res.deviceBlocked) setDevice({ kind: 'blocked', code: res.code, boundLabel: res.boundLabel, requestToken: res.requestToken, pending: res.pending });
       else await finish(res);
     } catch (e) {
       setError(errorMessage(e, t));
@@ -54,30 +61,10 @@ function LoginForm() {
     }
   });
 
-  const onMfa = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await finish(await api('/auth/mfa/verify', { body: { mfaToken, code } }));
-    } catch (err) {
-      setError(errorMessage(err, t));
-    } finally {
-      setBusy(false);
-    }
-  };
+  // The device now exists and the cookie is set, so replaying the same credentials signs in.
+  if (device) return <DeviceGate state={device} onBound={() => { setDevice(null); void onSubmit(); }} onExpired={() => { setDevice(null); void onSubmit(); }} />;
 
-  if (mfaToken) {
-    return (
-      <form onSubmit={onMfa} className="space-y-4">
-        <Field label={t('login.mfaCode')} htmlFor="code">
-          <Input id="code" inputMode="numeric" autoComplete="one-time-code" autoFocus value={code} onChange={(e) => setCode(e.target.value)} className="text-center text-lg tracking-[.4em]" maxLength={8} />
-        </Field>
-        {error && <Alert variant="destructive">{error}</Alert>}
-        <Button type="submit" className="w-full" size="lg" loading={busy}>{t('login.mfaSubmit')}</Button>
-      </form>
-    );
-  }
+
 
   return (
     <div className="space-y-5">
