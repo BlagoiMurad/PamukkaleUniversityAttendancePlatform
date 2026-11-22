@@ -18,9 +18,12 @@ import { MailService } from './mail/mail.service';
 import { PasswordService } from './auth/password.service';
 import { TokenService } from './auth/token.service';
 import { AuthService } from './auth/auth.service';
+import { DeviceService } from './auth/device.service';
+import { DeviceController } from './auth/device.controller';
 import { AuthController } from './auth/auth.controller';
 import { AuthGuard } from './auth/auth.guard';
 import { UsersService } from './users/users.service';
+import { ImportService } from './users/import.service';
 import { UsersController } from './users/users.controller';
 import { MeController } from './me/me.controller';
 import { CoursesService } from './courses/courses.service';
@@ -44,6 +47,7 @@ import { RequestsController } from './requests/requests.controller';
   ],
   controllers: [
     AuthController,
+    DeviceController,
     MeController,
     UsersController,
     CoursesController,
@@ -66,7 +70,9 @@ import { RequestsController } from './requests/requests.controller';
     PasswordService,
     TokenService,
     AuthService,
+    DeviceService,
     UsersService,
+    ImportService,
     CoursesService,
     LessonsService,
     AttendanceService,

@@ -42,9 +42,8 @@ export const settingsSchema = z.object({
   lateCountsAsPresent: z.boolean(),
   excusedCountsInDenominator: z.boolean(),
   // Student self-service (spec 18.3)
-  studentEditableFields: z.array(z.enum(['preferredName', 'phone', 'locale'])),
+  studentEditableFields: z.array(z.enum(['name', 'preferredName', 'phone', 'locale'])),
   // Security (spec 10)
-  mfaRequiredForStaff: z.boolean(),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -70,12 +69,12 @@ export const DEFAULT_SETTINGS: Settings = {
   auditRetentionDays: 1825,
   requestRetentionDays: 1825,
   technicalRetentionDays: 30,
-  onboardingMode: 'ACTIVATION_LINK',
+  // Every new account gets a generated password it must change at first sign-in.
+  onboardingMode: 'TEMP_PASSWORD',
   activationTtlHours: 72,
   lateCountsAsPresent: true,
   excusedCountsInDenominator: false,
-  studentEditableFields: ['preferredName', 'phone', 'locale'],
-  mfaRequiredForStaff: false,
+  studentEditableFields: ['name', 'preferredName', 'phone', 'locale'],
 };
 
 /** Settings that are safe to expose to any signed-in user. */

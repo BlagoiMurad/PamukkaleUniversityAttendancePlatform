@@ -18,7 +18,6 @@ export interface Me {
     status: string;
     universityId: string | null;
     mustChangePassword: boolean;
-    mfaEnabled: boolean;
     studentProfile?: { facultyNumber: string | null; programme: string | null; year: number | null; group: string | null };
     teacherProfile?: { department: string | null; faculty: string | null; title: string | null };
   };

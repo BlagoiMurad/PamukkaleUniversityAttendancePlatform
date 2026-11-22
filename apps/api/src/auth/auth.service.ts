@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { DeviceSession, OneTimeTokenType, Prisma, User } from '@prisma/client';
-import { authenticator } from 'otplib';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors';
 import { coarseIp, normaliseEmail, randomToken, safeEqual, sha256 } from '../common/util';
@@ -16,7 +15,6 @@ import type { RequestMeta } from '../common/decorators';
 const MAX_FAILED_LOGINS = 8;
 const LOCK_MINUTES = 15;
 const RESET_TTL_MINUTES = 30;
-const MFA_LOGIN_TTL_MINUTES = 5;
 
 export interface IssuedSession {
   user: User;
@@ -36,7 +34,6 @@ export const publicUser = (u: User & { studentProfile?: any; teacherProfile?: an
   status: u.status,
   universityId: u.universityId,
   mustChangePassword: u.mustChangePassword,
-  mfaEnabled: u.mfaEnabled,
   lastLoginAt: u.lastLoginAt,
   createdAt: u.createdAt,
   studentProfile: u.studentProfile ?? undefined,
@@ -57,7 +54,17 @@ export class AuthService {
   ) {}
 
   // ---------------------------------------------------------------- login
-  async login(emailRaw: string, password: string, deviceLabel: string | undefined, meta: RequestMeta) {
+  /**
+   * `gate` runs after the password is accepted but before any session exists, so a login from a
+   * device that is not allowed never revokes the sessions of the device that is.
+   */
+  async login<T extends { kind: string }>(
+    emailRaw: string,
+    password: string,
+    deviceLabel: string | undefined,
+    meta: RequestMeta,
+    gate?: (user: User) => Promise<T>,
+  ) {
     const email = normaliseEmail(emailRaw);
     const user = await this.prisma.user.findUnique({ where: { email } });
     const now = this.clock.now();
@@ -85,28 +92,15 @@ export class AuthService {
       throw new AppError('TEMP_PASSWORD_EXPIRED', 'The temporary password has expired. Ask for a new invitation.');
     }
 
-    if (user.mfaEnabled) {
-      const mfaToken = randomToken();
-      await this.prisma.oneTimeToken.create({
-        data: { userId: user.id, type: 'MFA_LOGIN', tokenHash: sha256(mfaToken), expiresAt: new Date(now.getTime() + MFA_LOGIN_TTL_MINUTES * 60_000) },
-      });
-      return { mfaRequired: true as const, mfaToken };
+    if (gate) {
+      const decision = await gate(user);
+      if (decision.kind !== 'ok') return { blocked: decision };
+      return { blocked: undefined, decision, issued: await this.issueSession(user, deviceLabel, meta, false) };
     }
-    return { mfaRequired: false as const, issued: await this.issueSession(user, deviceLabel, meta, false) };
+    return { blocked: undefined, decision: undefined, issued: await this.issueSession(user, deviceLabel, meta, false) };
   }
 
-  async completeMfaLogin(mfaToken: string, code: string, deviceLabel: string | undefined, meta: RequestMeta) {
-    const now = this.clock.now();
-    const token = await this.prisma.oneTimeToken.findUnique({ where: { tokenHash: sha256(mfaToken) }, include: { user: true } });
-    if (!token || token.type !== 'MFA_LOGIN' || token.consumedAt || token.expiresAt < now) throw new AppError('TOKEN_INVALID', 'Sign-in expired, start again');
-    if (!token.user.mfaSecret || !authenticator.check(code.replace(/\s/g, ''), token.user.mfaSecret)) {
-      await this.audit.log({ actor: token.user, action: 'auth.mfa_failed', targetType: 'user', targetId: token.userId, ip: meta.ip });
-      throw new AppError('MFA_INVALID', 'The verification code is not valid');
-    }
-    const consumed = await this.prisma.oneTimeToken.updateMany({ where: { id: token.id, consumedAt: null }, data: { consumedAt: now } });
-    if (consumed.count !== 1) throw new AppError('TOKEN_INVALID');
-    return this.issueSession(token.user, deviceLabel, meta, true);
-  }
+
 
   private async issueSession(user: User, deviceLabel: string | undefined, meta: RequestMeta, mfaVerified: boolean): Promise<IssuedSession> {
     const settings = await this.settings.get();
@@ -346,28 +340,7 @@ export class AuthService {
     await this.audit.log({ actor: token.user, action: 'auth.password_reset', targetType: 'user', targetId: token.userId, ip: meta.ip });
   }
 
-  // ---------------------------------------------------------------- MFA (TOTP) for staff
-  async mfaSetup(userId: string) {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    const secret = authenticator.generateSecret();
-    await this.prisma.user.update({ where: { id: userId }, data: { mfaSecret: secret, mfaEnabled: false } });
-    const settings = await this.settings.get();
-    return { secret, otpauthUrl: authenticator.keyuri(user.email, settings.universityName, secret) };
-  }
 
-  async mfaEnable(userId: string, code: string, meta: RequestMeta) {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    if (!user.mfaSecret || !authenticator.check(code.replace(/\s/g, ''), user.mfaSecret)) throw new AppError('MFA_INVALID', 'The code is not valid');
-    await this.prisma.user.update({ where: { id: userId }, data: { mfaEnabled: true } });
-    await this.audit.log({ actor: user, action: 'auth.mfa_enabled', targetType: 'user', targetId: userId, ip: meta.ip });
-  }
-
-  async mfaDisable(userId: string, password: string, meta: RequestMeta) {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    if (!(await this.passwords.verify(user.passwordHash, password))) throw new AppError('INVALID_CREDENTIALS', 'Password is incorrect');
-    await this.prisma.user.update({ where: { id: userId }, data: { mfaEnabled: false, mfaSecret: null } });
-    await this.audit.log({ actor: user, action: 'auth.mfa_disabled', targetType: 'user', targetId: userId, ip: meta.ip });
-  }
 
   // ---------------------------------------------------------------- sessions
   listSessions(userId: string) {

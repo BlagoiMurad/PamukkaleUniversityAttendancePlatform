@@ -21,9 +21,31 @@ let ids: Record<string, string> = {};
 let key = 0;
 const idem = () => `test-key-${Date.now()}-${++key}`;
 
+/** The device cookie each account was bound to, so repeat logins look like the same browser. */
+const deviceCookies: Record<string, string> = {};
+
+/**
+ * Signs in the way the web app does. Students are tied to one device, so the first login binds
+ * this "browser" and later logins replay its cookie.
+ */
 async function login(email: string) {
-  const res = await http.post('/api/auth/login').send({ email, password: PASSWORD }).expect(200);
+  const req = http.post('/api/auth/login');
+  if (deviceCookies[email]) req.set('Cookie', deviceCookies[email]);
+  const res = await req.send({ email, password: PASSWORD });
+
+  if (res.body?.deviceSetupRequired) {
+    const bind = await http.post('/api/auth/device/bind').send({ setupToken: res.body.setupToken, label: 'test device' }).expect(200);
+    const cookie = (bind.headers['set-cookie'] as unknown as string[] | undefined)?.find((c) => c.startsWith('pau_device='));
+    deviceCookies[email] = cookie?.split(';')[0] ?? '';
+    return login(email);
+  }
+  expect(res.status).toBe(200);
   return res.body.accessToken as string;
+}
+
+/** Signs in from a browser that has never been seen for this account. */
+function loginFromUnknownDevice(email: string) {
+  return http.post('/api/auth/login').send({ email, password: PASSWORD });
 }
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
@@ -177,6 +199,42 @@ describe('EC-20: marker windows, replay and concurrency', () => {
     clock.freeze(t0 + 61_000);
     const res = await verify(s, lesson.id, c.body.challengeId, currentMarker(lesson));
     expect(res.body.error.code).toBe('CHALLENGE_EXPIRED');
+  });
+});
+
+describe('Device binding: one student, one device', () => {
+  it('refuses a student signing in from a device that is not theirs', async () => {
+    await login('s3@t.edu'); // binds the first device
+    const res = await loginFromUnknownDevice('s3@t.edu');
+    expect(res.status).toBe(200);
+    expect(res.body.deviceBlocked).toBe(true);
+    expect(res.body.code).toBe('DEVICE_NOT_RECOGNISED');
+    // A refused login must not issue anything.
+    expect(res.body.accessToken).toBeUndefined();
+  });
+
+  it('refuses a second account on a device that already belongs to someone', async () => {
+    await login('s1@t.edu');
+    const res = await http
+      .post('/api/auth/login')
+      .set('Cookie', deviceCookies['s1@t.edu'])
+      .send({ email: 's2@t.edu', password: PASSWORD });
+    expect(res.body.deviceBlocked).toBe(true);
+    expect(res.body.code).toBe('DEVICE_BOUND_TO_OTHER_ACCOUNT');
+  });
+
+  it('does not tie teachers or admins to a device', async () => {
+    await login('teacher@t.edu');
+    const res = await loginFromUnknownDevice('teacher@t.edu');
+    expect(res.status).toBe(200);
+    expect(res.body.deviceBlocked).toBeUndefined();
+    expect(res.body.accessToken).toBeTruthy();
+  });
+
+  it('a blocked login leaves the real device signed in', async () => {
+    const phone = await login('s3@t.edu');
+    await loginFromUnknownDevice('s3@t.edu');
+    await http.get('/api/auth/me').set(auth(phone)).expect(200);
   });
 });
 

@@ -5,16 +5,30 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { AuthService, publicUser } from './auth.service';
 import { TokenService } from './token.service';
-import { ACCESS_COOKIE, clearAuthCookies, REFRESH_COOKIE, setAuthCookies, setCsrfCookie, CSRF_COOKIE } from './cookies';
+import { ACCESS_COOKIE, clearAuthCookies, REFRESH_COOKIE, setAuthCookies, setCsrfCookie, setDeviceCookie, CSRF_COOKIE, DEVICE_COOKIE } from './cookies';
+import { DeviceService } from './device.service';
 import { AllowPendingPassword, CurrentUser, Public, ReqMeta, RequestMeta, SkipCsrf } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { randomToken } from '../common/util';
+import { AppError } from '../common/errors';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../common/auth-user';
 import { SettingsService } from '../settings/settings.service';
 
-const loginSchema = z.object({ email: z.string().email().max(200), password: z.string().min(1).max(200), deviceLabel: z.string().max(80).optional() });
-const mfaLoginSchema = z.object({ mfaToken: z.string().min(10), code: z.string().min(6).max(10), deviceLabel: z.string().max(80).optional() });
+const loginSchema = z.object({
+  email: z.string().email().max(200),
+  password: z.string().min(1).max(200),
+  deviceLabel: z.string().max(80).optional(),
+  /** Opaque browser/hardware signal; only ever used to restore a cleared device cookie. */
+  fingerprint: z.string().max(400).optional(),
+});
+const bindDeviceSchema = z.object({ setupToken: z.string().min(10).max(200), fingerprint: z.string().max(400).optional(), label: z.string().max(80).optional() });
+const deviceRequestSchema = z.object({
+  setupToken: z.string().min(10).max(200),
+  reason: z.string().trim().min(10, 'Describe why you need a different device').max(500),
+  fingerprint: z.string().max(400).optional(),
+  label: z.string().max(80).optional(),
+});
 const changeSchema = z.object({ currentPassword: z.string().min(1).max(200), newPassword: z.string().min(1).max(200) });
 const tokenPasswordSchema = z.object({ token: z.string().min(10).max(200), password: z.string().min(1).max(200) });
 const emailSchema = z.object({ email: z.string().email().max(200) });
@@ -27,6 +41,7 @@ export class AuthController {
     private readonly tokens: TokenService,
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly devices: DeviceService,
   ) {}
 
   /** Issues the double-submit CSRF cookie. Called by the web app on boot. */
@@ -43,23 +58,63 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(200)
   @Post('login')
-  async login(@Body(new ZodPipe(loginSchema)) body: z.infer<typeof loginSchema>, @ReqMeta() meta: RequestMeta, @Res({ passthrough: true }) res: Response) {
-    const result = await this.auth.login(body.email, body.password, body.deviceLabel, meta);
-    if (result.mfaRequired) return { mfaRequired: true, mfaToken: result.mfaToken };
-    const { issued } = result;
+  async login(
+    @Body(new ZodPipe(loginSchema)) body: z.infer<typeof loginSchema>,
+    @Req() req: Request,
+    @ReqMeta() meta: RequestMeta,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.auth.login(body.email, body.password, body.deviceLabel, meta, (user) =>
+      this.devices.evaluate(user, req.cookies?.[DEVICE_COOKIE], body.fingerprint, meta),
+    );
+    // Blocked before a session was ever issued, so the real device stays signed in.
+    if (result.blocked) {
+      const d = result.blocked;
+      if (d.kind === 'bind') return { deviceSetupRequired: true, setupToken: d.setupToken };
+      if (d.kind === 'blocked') {
+        return { deviceBlocked: true, code: d.code, boundLabel: d.boundLabel, requestToken: d.requestToken, pending: d.pending };
+      }
+      throw new AppError('FORBIDDEN', 'This device cannot use this account');
+    }
+    const { issued, decision } = result;
+    if (decision?.kind === 'ok' && decision.deviceToken) setDeviceCookie(res, decision.deviceToken);
     setAuthCookies(res, issued.accessToken, issued.refreshToken, this.tokens.accessTtlSec, this.tokens.refreshTtlDays);
     return { user: publicUser(issued.user), mustChangePassword: issued.user.mustChangePassword, ...exposeToken(issued.accessToken) };
   }
 
+  /** "Is this the phone you will always check in with?" -> yes. */
   @Public()
   @SkipCsrf()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(200)
-  @Post('mfa/verify')
-  async mfaVerify(@Body(new ZodPipe(mfaLoginSchema)) body: z.infer<typeof mfaLoginSchema>, @ReqMeta() meta: RequestMeta, @Res({ passthrough: true }) res: Response) {
-    const issued = await this.auth.completeMfaLogin(body.mfaToken, body.code, body.deviceLabel, meta);
-    setAuthCookies(res, issued.accessToken, issued.refreshToken, this.tokens.accessTtlSec, this.tokens.refreshTtlDays);
-    return { user: publicUser(issued.user), mustChangePassword: issued.user.mustChangePassword, ...exposeToken(issued.accessToken) };
+  @Post('device/bind')
+  async bindDevice(
+    @Body(new ZodPipe(bindDeviceSchema)) body: z.infer<typeof bindDeviceSchema>,
+    @ReqMeta() meta: RequestMeta,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const user = await this.devices.consumeSetupToken(body.setupToken);
+    const token = await this.devices.bind(user, body.fingerprint, body.label, meta);
+    setDeviceCookie(res, token);
+    return { ok: true };
+  }
+
+  /** Raised from the "not your device" screen, for a teacher or admin to review. */
+  @Public()
+  @SkipCsrf()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('device/change-request')
+  async requestDeviceChange(
+    @Body(new ZodPipe(deviceRequestSchema)) body: z.infer<typeof deviceRequestSchema>,
+    @ReqMeta() meta: RequestMeta,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const user = await this.devices.consumeSetupToken(body.setupToken);
+    const { deviceToken } = await this.devices.requestChange(user, body.reason, body.fingerprint, body.label, meta);
+    // Held now so that approval alone is enough - the student need not be at the device again.
+    setDeviceCookie(res, deviceToken);
+    return { ok: true };
   }
 
   @Public()
@@ -142,25 +197,6 @@ export class AuthController {
   @Delete('sessions/:id')
   async revoke(@CurrentUser() user: AuthUser, @Param('id') id: string, @ReqMeta() meta: RequestMeta) {
     await this.auth.revokeSession(user.id, id, user, meta);
-    return { ok: true };
-  }
-
-  @Post('mfa/setup')
-  mfaSetup(@CurrentUser() user: AuthUser) {
-    return this.auth.mfaSetup(user.id);
-  }
-
-  @HttpCode(200)
-  @Post('mfa/enable')
-  async mfaEnable(@CurrentUser() user: AuthUser, @Body(new ZodPipe(z.object({ code: z.string().min(6).max(10) }))) body: { code: string }, @ReqMeta() meta: RequestMeta) {
-    await this.auth.mfaEnable(user.id, body.code, meta);
-    return { ok: true };
-  }
-
-  @HttpCode(200)
-  @Post('mfa/disable')
-  async mfaDisable(@CurrentUser() user: AuthUser, @Body(new ZodPipe(z.object({ password: z.string().min(1) }))) body: { password: string }, @ReqMeta() meta: RequestMeta) {
-    await this.auth.mfaDisable(user.id, body.password, meta);
     return { ok: true };
   }
 }

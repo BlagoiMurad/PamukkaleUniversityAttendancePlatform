@@ -74,6 +74,18 @@ export function AppShell({ me, children }: { me: Me; children: React.ReactNode }
   const online = useOnline();
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => setOpen(false), [pathname]);
+  // Escape closes the drawer, and the page behind it must not scroll while it is open.
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
   const items: NavItem[] = [...NAV[me.user.role], { href: '/profile', label: 'nav.profile', icon: ShieldCheck }];
 
   const nav = (

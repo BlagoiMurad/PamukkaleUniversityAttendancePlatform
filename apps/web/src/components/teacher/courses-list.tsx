@@ -42,41 +42,70 @@ export function CoursesList() {
         ) : !courses.data?.items.length ? (
           <div className="p-5"><EmptyState icon={BookOpen} title={t('teacher.noCourses')} description={t('teacher.noCoursesHint')} /></div>
         ) : (
-          <Table>
-            <THead>
-              <TR>
-                <TH className="pl-5">{t('course.code')}</TH>
-                <TH>{t('course.title')}</TH>
-                <TH>{t('course.term')}</TH>
-                <TH>{t('course.teachers')}</TH>
-                <TH>{t('course.tabStudents')}</TH>
-                <TH className="pr-5 text-right">{t('common.actions')}</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {courses.data.items.map((c: any) => (
-                <TR key={c.id}>
-                  <TD className="pl-5 font-semibold">{c.code}</TD>
-                  <TD>
-                    <Link href={`/teacher/courses/${c.id}`} className="font-medium hover:underline">{c.title}</Link>
-                    {c.status === 'ARCHIVED' && <Badge variant="muted" className="ml-2">archived</Badge>}
-                  </TD>
-                  <TD className="text-muted-foreground">{c.term}</TD>
-                  <TD className="text-sm text-muted-foreground">{c.teachers.map((x: any) => x.name).join(', ') || c.owner.name}</TD>
-                  <TD className="tabular">{c.studentCount}</TD>
-                  <TD className="pr-5">
-                    <div className="flex justify-end gap-2">
-                      {c.activeLessonId ? (
-                        <Button size="sm" asChild><Link href={`/teacher/lessons/${c.activeLessonId}`}><LessonBadge status="ACTIVE" /></Link></Button>
-                      ) : (
-                        c.status === 'ACTIVE' && <StartLessonButton courseId={c.id} size="sm" variant="outline" />
-                      )}
+          <>
+            {/* Phones get cards: a six-column table forces side-scrolling and hides the
+                "start lesson" button, which is the one thing a teacher comes here to press. */}
+            <ul className="divide-y sm:hidden">
+              {courses.data.items.map((c: any, idx: number) => (
+                <li key={c.id} className={`rise-in rise-${Math.min(idx + 1, 4)} space-y-3 p-4`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="muted">{c.code}</Badge>
+                        {c.status === 'ARCHIVED' && <Badge variant="muted">archived</Badge>}
+                      </div>
+                      <Link href={`/teacher/courses/${c.id}`} className="mt-1 block truncate font-semibold hover:underline">{c.title}</Link>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {c.term} · {t('teacher.students', { count: c.studentCount })}
+                      </p>
                     </div>
-                  </TD>
-                </TR>
+                  </div>
+                  {c.activeLessonId ? (
+                    <Button className="w-full" asChild><Link href={`/teacher/lessons/${c.activeLessonId}`}><LessonBadge status="ACTIVE" /></Link></Button>
+                  ) : (
+                    c.status === 'ACTIVE' && <StartLessonButton courseId={c.id} className="w-full" variant="outline" />
+                  )}
+                </li>
               ))}
-            </TBody>
-          </Table>
+            </ul>
+            <div className="hidden sm:block">
+          <Table>
+              <THead>
+                <TR>
+                  <TH className="pl-5">{t('course.code')}</TH>
+                  <TH>{t('course.title')}</TH>
+                  <TH>{t('course.term')}</TH>
+                  <TH>{t('course.teachers')}</TH>
+                  <TH>{t('course.tabStudents')}</TH>
+                  <TH className="pr-5 text-right">{t('common.actions')}</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {courses.data.items.map((c: any) => (
+                  <TR key={c.id}>
+                    <TD className="pl-5 font-semibold">{c.code}</TD>
+                    <TD>
+                      <Link href={`/teacher/courses/${c.id}`} className="font-medium hover:underline">{c.title}</Link>
+                      {c.status === 'ARCHIVED' && <Badge variant="muted" className="ml-2">archived</Badge>}
+                    </TD>
+                    <TD className="text-muted-foreground">{c.term}</TD>
+                    <TD className="text-sm text-muted-foreground">{c.teachers.map((x: any) => x.name).join(', ') || c.owner.name}</TD>
+                    <TD className="tabular">{c.studentCount}</TD>
+                    <TD className="pr-5">
+                      <div className="flex justify-end gap-2">
+                        {c.activeLessonId ? (
+                          <Button size="sm" asChild><Link href={`/teacher/lessons/${c.activeLessonId}`}><LessonBadge status="ACTIVE" /></Link></Button>
+                        ) : (
+                          c.status === 'ACTIVE' && <StartLessonButton courseId={c.id} size="sm" variant="outline" />
+                        )}
+                      </div>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+            </div>
+          </>
         )}
       </Card>
       <CourseDialog open={open} onOpenChange={setOpen} isAdmin={isAdmin} />

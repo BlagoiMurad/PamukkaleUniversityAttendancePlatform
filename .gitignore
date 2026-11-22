@@ -4,11 +4,17 @@ dist/
 out/
 coverage/
 *.log
-.env
-.env.local
+# Every .env variant stays local; only the committed examples are shared.
+.env*
+!.env.example
+!apps/api/.env.example
+*.bak
 apps/api/.outbox/
 playwright-report/
 test-results/
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+certificates/
+*.pem
+apps/web/public/rootCA.crt

@@ -6,8 +6,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Supabase: DATABASE_URL = transaction pooler (6543), DIRECT_URL = session pooler (5432).
+  // Without Supabase leave DIRECT_URL unset-equal to DATABASE_URL.
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -60,6 +63,9 @@ model User {
   requestsAbout      AttendanceRequest[]  @relation("RequestStudent")
   requestsReviewed   AttendanceRequest[]  @relation("RequestReviewer")
   lessonsTaught      Lesson[]             @relation("LessonTeacher")
+  device             Device?
+  deviceRequests     DeviceChangeRequest[] @relation("DeviceRequestUser")
+  deviceReviews      DeviceChangeRequest[] @relation("DeviceRequestReviewer")
 
   @@index([role, status])
   @@map("users")
@@ -110,10 +116,67 @@ model DeviceSession {
   @@map("device_sessions")
 }
 
+/**
+ * The one device a user is allowed to sign in from. A browser proves it is this device by
+ * presenting the long-lived `pau_device` cookie; `fingerprintHash` is a weak secondary signal
+ * used only to restore a lost cookie for someone who already passed the password check, never
+ * as a credential on its own. One row per user and per device token, so a device cannot be
+ * shared between two accounts and an account cannot collect devices.
+ */
+model Device {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  tokenHash       String   @unique @map("token_hash")
+  fingerprintHash String?  @map("fingerprint_hash")
+  label           String?
+  userAgent       String?  @map("user_agent")
+  createdAt       DateTime @default(now()) @map("created_at")
+  lastSeenAt      DateTime @default(now()) @map("last_seen_at")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([fingerprintHash])
+  @@map("devices")
+}
+
+enum DeviceChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/**
+ * Raised from the "this is not your device" screen after a correct password from an unknown
+ * device. It carries the identity of the device asking to take over, so approving it is enough
+ * to rebind - the student does not have to be present again.
+ */
+model DeviceChangeRequest {
+  id             String             @id @default(uuid()) @db.Uuid
+  userId         String             @map("user_id") @db.Uuid
+  reason         String
+  status         DeviceChangeStatus @default(PENDING)
+  newTokenHash   String             @map("new_token_hash")
+  newFingerprint String?            @map("new_fingerprint")
+  newLabel       String?            @map("new_label")
+  newUserAgent   String?            @map("new_user_agent")
+  previousLabel  String?            @map("previous_label")
+  reviewerId     String?            @map("reviewer_id") @db.Uuid
+  reviewNote     String?            @map("review_note")
+  reviewedAt     DateTime?          @map("reviewed_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  user           User               @relation("DeviceRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer       User?              @relation("DeviceRequestReviewer", fields: [reviewerId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([userId, status])
+  @@map("device_change_requests")
+}
+
 enum OneTimeTokenType {
   ACTIVATION
   PASSWORD_RESET
   MFA_LOGIN
+  DEVICE_SETUP
 }
 
 model OneTimeToken {

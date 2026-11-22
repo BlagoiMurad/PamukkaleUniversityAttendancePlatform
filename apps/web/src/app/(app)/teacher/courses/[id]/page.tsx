@@ -94,9 +94,9 @@ function LessonsTab({ courseId }: { courseId: string }) {
             <THead>
               <TR>
                 <TH className="pl-5">{t('lesson.startsAt')}</TH>
-                <TH>{t('lesson.title')}</TH>
+                <TH className="hidden md:table-cell">{t('lesson.title')}</TH>
                 <TH>{t('common.status')}</TH>
-                <TH>{t('lesson.checkedIn')}</TH>
+                <TH className="hidden sm:table-cell">{t('lesson.checkedIn')}</TH>
                 <TH className="pr-5 text-right">{t('common.actions')}</TH>
               </TR>
             </THead>
@@ -104,9 +104,14 @@ function LessonsTab({ courseId }: { courseId: string }) {
               {items.map((l: any) => (
                 <TR key={l.id}>
                   <TD className="pl-5"><p className="font-medium">{fmt.weekday(l.startsAt)}</p><p className="text-xs text-muted-foreground">{fmt.time(l.startsAt)}–{fmt.time(l.scheduledEndAt)}</p></TD>
-                  <TD>{l.title || '—'}{l.room && <span className="text-muted-foreground"> · {l.room}</span>}</TD>
-                  <TD><LessonBadge status={l.status} /></TD>
-                  <TD className="tabular">{l.status === 'DRAFT' || l.status === 'CANCELLED' ? '—' : l.presentCount}</TD>
+                  <TD className="hidden md:table-cell">{l.title || '—'}{l.room && <span className="text-muted-foreground"> · {l.room}</span>}</TD>
+                  <TD>
+                    <LessonBadge status={l.status} />
+                    <span className="mt-1 block text-xs text-muted-foreground sm:hidden">
+                      {l.status === 'DRAFT' || l.status === 'CANCELLED' ? (l.title || '—') : `${l.presentCount} · ${t('lesson.checkedIn')}`}
+                    </span>
+                  </TD>
+                  <TD className="tabular hidden sm:table-cell">{l.status === 'DRAFT' || l.status === 'CANCELLED' ? '—' : l.presentCount}</TD>
                   <TD className="pr-5">
                     <div className="flex justify-end gap-1">
                       {(l.status === 'ENDED' || l.status === 'LOCKED') && (
@@ -190,13 +195,17 @@ function StudentsTab({ courseId, canManage }: { courseId: string; canManage: boo
           <div className="px-5"><EmptyState icon={Users} title={t('course.noStudents')} action={canManage ? <Button onClick={() => setOpen(true)}><UserPlus /> {t('course.addStudents')}</Button> : undefined} /></div>
         ) : (
           <Table>
-            <THead><TR><TH className="pl-5">{t('common.name')}</TH><TH>{t('course.facultyNumber')}</TH><TH>{t('course.group')}</TH><TH>{t('common.status')}</TH><TH className="pr-5" /></TR></THead>
+            <THead><TR><TH className="pl-5">{t('common.name')}</TH><TH className="hidden sm:table-cell">{t('course.facultyNumber')}</TH><TH className="hidden md:table-cell">{t('course.group')}</TH><TH>{t('common.status')}</TH><TH className="pr-5" /></TR></THead>
             <TBody>
               {items.map((e: any) => (
                 <TR key={e.id}>
-                  <TD className="pl-5"><p className="font-medium">{e.student.name}</p><p className="text-xs text-muted-foreground">{e.student.email}</p></TD>
-                  <TD className="tabular">{e.student.studentProfile?.facultyNumber ?? '—'}</TD>
-                  <TD>{e.student.studentProfile?.group ?? '—'}</TD>
+                  <TD className="pl-5">
+                    <p className="font-medium">{e.student.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{e.student.email}</p>
+                    <p className="tabular text-xs text-muted-foreground sm:hidden">{e.student.studentProfile?.facultyNumber ?? '—'}</p>
+                  </TD>
+                  <TD className="tabular hidden sm:table-cell">{e.student.studentProfile?.facultyNumber ?? '—'}</TD>
+                  <TD className="hidden md:table-cell">{e.student.studentProfile?.group ?? '—'}</TD>
                   <TD>{e.state === 'ACTIVE' ? <Badge variant="success">enrolled</Badge> : <Badge variant="muted">withdrawn</Badge>}</TD>
                   <TD className="pr-5 text-right">
                     {canManage && e.state === 'ACTIVE' && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setRemove(e.student)}><Trash2 /> {t('course.unenroll')}</Button>}
@@ -236,44 +245,128 @@ function StudentsTab({ courseId, canManage }: { courseId: string; canManage: boo
 function AddStudentsDialog({ courseId, open, onOpenChange, onDone }: { courseId: string; open: boolean; onOpenChange: (o: boolean) => void; onDone: () => void }) {
   const t = useT();
   const [q, setQ] = React.useState('');
+  const [debouncedQ, setDebouncedQ] = React.useState('');
+  const [year, setYear] = React.useState('');
+  const [programme, setProgramme] = React.useState('');
   const [picked, setPicked] = React.useState<Map<string, any>>(new Map());
   const [paste, setPaste] = React.useState('');
+  const [showPaste, setShowPaste] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [result, setResult] = React.useState<string | null>(null);
-  const search = useQuery({ queryKey: ['directory', 'students', q], queryFn: () => api(`/directory/students?q=${encodeURIComponent(q)}`), enabled: open });
+
+  // Typing shouldn't fire a request per keystroke.
+  React.useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedQ(q), 250);
+    return () => window.clearTimeout(id);
+  }, [q]);
+
+  const search = useQuery({
+    queryKey: ['directory', 'students', debouncedQ, year, programme],
+    queryFn: () =>
+      api(`/directory/students?q=${encodeURIComponent(debouncedQ)}&take=200` + (year ? `&year=${year}` : '') + (programme ? `&programme=${encodeURIComponent(programme)}` : '')),
+    enabled: open,
+  });
+
   React.useEffect(() => {
     if (open) {
       setPicked(new Map());
       setPaste('');
+      setShowPaste(false);
       setResult(null);
+      setQ('');
+      setYear('');
+      setProgramme('');
     }
   }, [open]);
+
+  const items: any[] = search.data?.items ?? [];
+  const allShownPicked = items.length > 0 && items.every((s) => picked.has(s.id));
+  const toggleAllShown = () => {
+    const n = new Map(picked);
+    if (allShownPicked) items.forEach((s) => n.delete(s.id));
+    else items.forEach((s) => n.set(s.id, s));
+    setPicked(n);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={t('course.addStudents')} description={t('course.addStudentsHint')} className="max-w-2xl">
-        <div className="relative"><Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" /><Input autoFocus className="pl-8" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('common.search')} /></div>
-        <div className="max-h-64 overflow-y-auto rounded-lg border">
-          {(search.data?.items ?? []).map((s: any) => (
-            <label key={s.id} className="flex cursor-pointer items-center gap-3 border-b px-3 py-2 last:border-0 hover:bg-secondary">
-              <input
-                type="checkbox"
-                checked={picked.has(s.id)}
-                onChange={(e) => {
-                  const n = new Map(picked);
-                  if (e.target.checked) n.set(s.id, s);
-                  else n.delete(s.id);
-                  setPicked(n);
-                }}
-              />
-              <span className="flex-1"><span className="font-medium">{s.name}</span> <span className="text-xs text-muted-foreground">{s.email}</span></span>
-              <span className="tabular text-xs text-muted-foreground">{s.studentProfile?.facultyNumber}</span>
-            </label>
-          ))}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+            <Input autoFocus className="pl-8" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('course.searchStudents')} />
+          </div>
+          <Select value={year} onChange={(e) => setYear(e.target.value)} className="sm:w-36" aria-label={t('course.year')}>
+            <option value="">{t('course.allYears')}</option>
+            {(search.data?.years ?? []).map((y: number) => (
+              <option key={y} value={y}>{t('course.yearN', { n: y })}</option>
+            ))}
+          </Select>
+          {(search.data?.programmes ?? []).length > 0 && (
+            <Select value={programme} onChange={(e) => setProgramme(e.target.value)} className="sm:w-44" aria-label={t('course.programme')}>
+              <option value="">{t('course.allProgrammes')}</option>
+              {(search.data?.programmes ?? []).map((p: string) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </Select>
+          )}
         </div>
-        <Field label={t('course.paste')} htmlFor="paste"><Textarea id="paste" rows={3} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'student02@pau.edu.tr\n20261005'} /></Field>
+
+        <div className="flex items-center justify-between px-0.5 text-sm">
+          <button type="button" className="font-medium text-primary hover:underline disabled:opacity-50" onClick={toggleAllShown} disabled={!items.length}>
+            {allShownPicked ? t('course.clearShown') : t('course.selectAllShown', { n: items.length })}
+          </button>
+          {picked.size > 0 && (
+            <button type="button" className="text-muted-foreground hover:underline" onClick={() => setPicked(new Map())}>
+              {t('course.clearSelection', { n: picked.size })}
+            </button>
+          )}
+        </div>
+
+        <div className="max-h-72 overflow-y-auto rounded-lg border">
+          {search.isLoading ? (
+            <div className="p-6"><Spinner /></div>
+          ) : items.length === 0 ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">{t('course.noMatches')}</p>
+          ) : (
+            items.map((s: any) => (
+              <label key={s.id} className="flex cursor-pointer items-center gap-3 border-b px-3 py-2 last:border-0 hover:bg-secondary">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[hsl(var(--primary))]"
+                  checked={picked.has(s.id)}
+                  onChange={(e) => {
+                    const n = new Map(picked);
+                    if (e.target.checked) n.set(s.id, s);
+                    else n.delete(s.id);
+                    setPicked(n);
+                  }}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{s.name}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{s.email}</span>
+                </span>
+                {s.studentProfile?.year != null && <Badge variant="muted">{t('course.yearN', { n: s.studentProfile.year })}</Badge>}
+                <span className="tabular w-24 shrink-0 text-right text-xs text-muted-foreground">{s.studentProfile?.facultyNumber}</span>
+              </label>
+            ))
+          )}
+        </div>
+        {search.data?.truncated && <p className="text-xs text-muted-foreground">{t('course.tooMany', { shown: items.length, total: search.data.total })}</p>}
+
+        {showPaste ? (
+          <Field label={t('course.paste')} htmlFor="paste">
+            <Textarea id="paste" rows={3} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'student02@pau.edu.tr\n20261005'} />
+          </Field>
+        ) : (
+          <button type="button" className="self-start text-sm text-muted-foreground hover:underline" onClick={() => setShowPaste(true)}>
+            {t('course.pasteToggle')}
+          </button>
+        )}
+
         {result && <Alert variant="success">{result}</Alert>}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm text-muted-foreground">{picked.size} selected</span>
+          <span className="text-sm text-muted-foreground">{t('course.selected', { n: picked.size })}</span>
           <Button
             loading={busy}
             disabled={!picked.size && !paste.trim()}
@@ -282,7 +375,7 @@ function AddStudentsDialog({ courseId, open, onOpenChange, onDone }: { courseId:
               try {
                 const identifiers = paste.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean);
                 const r = await api(`/courses/${courseId}/enrollments`, { body: { studentIds: [...picked.keys()], identifiers } });
-                setResult(t('course.added', { added: r.added, already: r.alreadyEnrolled }) + (r.notFound.length ? ` · ${t('course.notFound', { list: r.notFound.join(', ') })}` : ''));
+                setResult(t('course.added', { added: r.added, already: r.alreadyEnrolled }) + (r.notFound.length ? ` \u00b7 ${t('course.notFound', { list: r.notFound.join(', ') })}` : ''));
                 setPicked(new Map());
                 setPaste('');
                 onDone();
@@ -300,7 +393,6 @@ function AddStudentsDialog({ courseId, open, onOpenChange, onDone }: { courseId:
     </Dialog>
   );
 }
-
 function TeachersTab({ course, isAdmin }: { course: any; isAdmin: boolean }) {
   const t = useT();
   const qc = useQueryClient();
