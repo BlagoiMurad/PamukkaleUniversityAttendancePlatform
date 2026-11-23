@@ -42,7 +42,7 @@ export const settingsSchema = z.object({
   lateCountsAsPresent: z.boolean(),
   excusedCountsInDenominator: z.boolean(),
   // Student self-service (spec 18.3)
-  studentEditableFields: z.array(z.enum(['name', 'preferredName', 'phone', 'locale'])),
+  studentEditableFields: z.array(z.enum(['preferredName', 'phone', 'locale'])),
   // Security (spec 10)
 });
 
@@ -74,7 +74,7 @@ export const DEFAULT_SETTINGS: Settings = {
   activationTtlHours: 72,
   lateCountsAsPresent: true,
   excusedCountsInDenominator: false,
-  studentEditableFields: ['name', 'preferredName', 'phone', 'locale'],
+  studentEditableFields: ['preferredName', 'phone', 'locale'],
 };
 
 /** Settings that are safe to expose to any signed-in user. */

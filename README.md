@@ -2,7 +2,7 @@
 
 # 🎓 Pamukkale University Attendance Platform
 
-**Университетска уеб платформа за отчитане на присъствие с QR вход и AprilTag проверка от живата камера**
+**Университетска уеб платформа за отчитане на присъствие с QR вход и Check-In Tag проверка от живата камера**
 
 ![Status](https://img.shields.io/badge/статус-в%20разработка-yellow)
 ![Spec](https://img.shields.io/badge/спецификация-FINAL%202.0-success)
@@ -11,7 +11,9 @@
 ![NestJS](https://img.shields.io/badge/NestJS-E0234E?logo=nestjs&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-2D3748?logo=prisma&logoColor=white)
-![AprilTag](https://img.shields.io/badge/AprilTag-36h11-orange)
+![Check-In Tag](https://img.shields.io/badge/Check--In%20Tag-36h11-orange)
+
+**[English](docs/README.en.md)** · **[Türkçe](docs/README.tr.md)** · Български
 
 [Стартиране](#-стартиране) •
 [Как работи](#-как-работи) •
@@ -30,6 +32,7 @@
 > Спецификацията е [`University_Attendance_Platform_FINAL_BG_v2_1.docx`](University_Attendance_Platform_FINAL_BG_v2_1.docx);
 > при противоречие има предимство раздел 18. Решенията по отворените въпроси са в
 > [`docs/DECISIONS.md`](docs/DECISIONS.md), статусът на задачите в [`docs/PLAN.md`](docs/PLAN.md).
+> Пълна документация на [английски](docs/README.en.md) и [турски](docs/README.tr.md).
 
 ## 🚀 Стартиране
 
@@ -67,7 +70,7 @@ npm run dev:web                              # http://localhost:3000
 | Студент | student@pau.edu.tr, student02@pau.edu.tr … student30@pau.edu.tr |
 
 Пробвайте: влезте като преподавател, отворете курс, натиснете **Start lesson**, после **Open projector**.
-От телефон сканирайте QR кода, влезте като студент и насочете камерата към AprilTag маркера.
+От телефон сканирайте QR кода, влезте като студент и насочете камерата към Check-In Tag маркера.
 
 ### Тестове
 
@@ -87,16 +90,16 @@ API e2e тестовете покриват границата 10:00 (точно
 |---|---|
 | 🎯 **Цел** | Достоверно отчитане на присъствие в университетски занятия |
 | 👥 **Роли** | Администратор, преподавател, студент |
-| 📷 **Проверка** | Етап 1: QR със системната камера → Етап 2: AprilTag 36h11 от живата браузърна камера |
-| 🔄 **Ротация** | Маркерът се сменя на всеки **точно 20 секунди** по сървърно време |
+| 📷 **Проверка** | Етап 1: QR със системната камера → Етап 2: Check-In Tag от живата браузърна камера |
+| 🔄 **Ротация** | Маркерът се сменя на всеки **точно 10 секунди** по сървърно време |
 | ⏱️ **Закъснение** | `verified_at ≤ start + 10:00` → **PRESENT**, иначе → **LATE** |
 | 📱 **Сесии** | Студентът има само **една активна сесия**, новият вход прекратява старата |
 | 🔒 **Поверителност** | Без съхранение на снимки, видео или биометрия. Разпознаването е локално в браузъра |
 | 📊 **Отчети** | Excel (.xlsx) отчети по курс, седмица и занятие за преподавателите |
 
 > [!WARNING]
-> **Какво системата НЕ гарантира.** QR кодът сам не доказва присъствие. AprilTag ID не е тайна
-> и не е криптографски подпис. 20-секундната ротация затруднява използването на стари снимки,
+> **Какво системата НЕ гарантира.** QR кодът сам не доказва присъствие. Check-In Tag ID не е тайна
+> и не е криптографски подпис. 10-секундната ротация затруднява използването на стари снимки,
 > но **не спира** живо препредаване, виртуална камера или подправен клиент. Платформата е
 > *допълнителна проверка на присъствие*, а не доказателство за физическо местоположение.
 
@@ -109,7 +112,7 @@ API e2e тестовете покриват границата 10:00 (точно
 | Етап | Камера | Какво прави | Какво НЕ прави |
 |---|---|---|---|
 | **1. QR** | Системното приложение „Камера“ на iOS/Android | Отваря HTTPS адреса на активното занятие | Не отчита присъствие, няма вграден QR скенер в сайта |
-| **2. AprilTag** | Браузърна камера (`getUserMedia`, HTTPS) | Разпознава локално текущия маркер от жив видеопоток | Няма качване на файл, снимане или запис на кадри |
+| **2. Check-In Tag** | Браузърна камера (`getUserMedia`, HTTPS) | Разпознава локално текущия маркер от жив видеопоток | Няма качване на файл, снимане или запис на кадри |
 
 ### Поток на студента
 
@@ -125,8 +128,8 @@ sequenceDiagram
 
     T->>API: Стартира занятие
     API->>DB: status = ACTIVE, actual_started_at (UTC)
-    API-->>P: join URL (QR) + текущ AprilTag
-    loop На всеки 20 s
+    API-->>P: join URL (QR) + текущ Check-In Tag
+    loop На всеки 10 s
         API-->>P: marker.rotated (нов AprilTag + countdown)
     end
     S->>P: Сканира QR със системната камера
@@ -208,14 +211,14 @@ flowchart LR
 
 ---
 
-## 🔄 Ротация на AprilTag маркера
+## 🔄 Ротация на Check-In Tag маркера
 
 ```mermaid
 flowchart TD
     A["Старт на занятие"] --> B["session_secret = CSPRNG()<br/><i>само на сървъра</i>"]
     B --> C["slot = floor((server_now − marker_epoch) / 20 000 ms)"]
     C --> D["marker_id = HMAC(session_secret, lesson_id ‖ slot)<br/>mod 587 валидни tag36h11 ID"]
-    D --> E["🖥️ Проекторът показва маркера<br/>+ 20 s countdown"]
+    D --> E["🖥️ Проекторът показва маркера<br/>+ 10 s countdown"]
     E -->|"границата на слота"| C
     D --> F{"verify от студент"}
     F -->|"текущ слот"| G["✅ Приема се"]
@@ -299,7 +302,7 @@ erDiagram
     COURSE ||--o{ ENROLLMENT : ""
     USER ||--o{ ENROLLMENT : "записан в"
     COURSE ||--o{ LESSON : ""
-    LESSON ||--o{ MARKER_SLOT : "20 s слотове"
+    LESSON ||--o{ MARKER_SLOT : "10 s слотове"
     LESSON ||--o{ ATTENDANCE_CHALLENGE : ""
     LESSON ||--o{ ATTENDANCE : ""
     USER ||--o{ ATTENDANCE : ""
@@ -452,7 +455,7 @@ flowchart LR
 - [ ] **FE-02** Login, activation, задължителна смяна на парола, безопасен `returnTo` след QR
 - [ ] **FE-03** Админ: потребители, CSV/XLSX preview и импорт, курсове и права
 - [ ] **FE-04** Преподавател: курсове, записване и отписване, старт и край на час, проекторен екран
-- [ ] **FE-05** Проектор: QR URL, AprilTag 36h11, 20 s countdown, WebSocket resync
+- [ ] **FE-05** Проектор: QR URL, Check-In Tag (AprilTag 36h11), 10 s countdown, WebSocket resync
 - [ ] **FE-06** Студент: join страница, проверка на курса, AprilTag скенер, състояния за разрешения и грешки
 - [ ] **FE-07** Студент: история, статуси, лични данни, заявки за корекция
 - [ ] **FE-08** Преподавател: live roster, ръчни корекции с причина, експорт
@@ -468,7 +471,7 @@ flowchart LR
 - [ ] **BE-03** RBAC по курс и занятие, админ импорти с валидация
 - [ ] **BE-04** CRUD за курсове, записвания и занятия, start/end и сървърни времена
 - [ ] **BE-05** Генериране и валидация на join token, безопасен redirect
-- [ ] **BE-06** 20 s слотове за AprilTag, сървърно време, display-state, WebSocket
+- [ ] **BE-06** 10 s слотове за Check-In Tag, сървърно време, display-state, WebSocket
 - [ ] **BE-07** Еднократни challenges, атомарна проверка, статус на присъствие, unique constraints
 - [ ] **BE-08** Корекции, заявки, одит, справки и експорти
 - [ ] **BE-09** Rate limiting, мониторинг, политика за съхранение, integration/load/security тестове

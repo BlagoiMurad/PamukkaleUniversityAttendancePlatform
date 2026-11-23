@@ -286,7 +286,7 @@ model Lesson {
   sessionSecret           String?      @map("session_secret")
   joinToken               String?      @unique @map("join_token")
   markerEpoch             DateTime?    @map("marker_epoch")
-  markerRotationSeconds   Int          @default(20) @map("marker_rotation_seconds")
+  markerRotationSeconds   Int          @default(10) @map("marker_rotation_seconds")
   markerPolicyVersion     Int          @default(1) @map("marker_policy_version")
   attendancePolicyVersion Int?         @map("attendance_policy_version")
   // Snapshot of the policy at start time so later policy changes never re-grade a running lesson.

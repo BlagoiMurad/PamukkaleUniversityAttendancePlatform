@@ -9,6 +9,8 @@ coverage/
 !.env.example
 !apps/api/.env.example
 *.bak
+# Office lock files, created while a document is open
+~$*
 apps/api/.outbox/
 playwright-report/
 test-results/

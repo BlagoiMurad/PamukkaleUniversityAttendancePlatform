@@ -55,7 +55,7 @@ async function startLesson(teacherToken: string, courseId: string) {
   return lesson;
 }
 const currentMarker = (lesson: { id: string; sessionSecret: string | null; markerEpoch: Date | null }) =>
-  markerFor(lesson.sessionSecret!, lesson.id, Math.floor((clock.nowMs() - lesson.markerEpoch!.getTime()) / 20000));
+  markerFor(lesson.sessionSecret!, lesson.id, Math.floor((clock.nowMs() - lesson.markerEpoch!.getTime()) / (lesson.markerRotationSeconds * 1000)));
 
 function challenge(token: string, lesson: { id: string; joinToken: string | null }) {
   return http.post(`/api/lessons/${lesson.id}/attendance-challenges`).set(auth(token)).send({ joinToken: lesson.joinToken });

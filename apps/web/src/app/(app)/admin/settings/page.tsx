@@ -138,7 +138,7 @@ export default function SettingsPage() {
             <Num label={t('settings.teacherMaxSessions')} hint={t('settings.teacherMaxSessionsHint')} value={draft.teacherMaxSessions} onChange={(v) => set('teacherMaxSessions', v)} min={0} max={50} />
             <Field label={t('settings.studentEditable')} hint={t('settings.studentEditableHint')}>
               <div className="space-y-2">
-                {['name', 'preferredName', 'phone', 'locale'].map((f) => (
+                {['preferredName', 'phone', 'locale'].map((f) => (
                   <Toggle
                     key={f}
                     label={f}
