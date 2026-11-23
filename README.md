@@ -142,7 +142,7 @@ sequenceDiagram
     B->>API: POST attendance-challenges
     API-->>B: Еднократен challenge (TTL ~60 s)
     S->>B: „Сканирай AprilTag“ + разрешение за камера
-    B->>B: WASM детектор разчита marker ID локално
+    B->>B: js-aruco2 детекторът разчита marker ID локално
     B->>API: verify {challengeId, markerFamily, markerId}
     API->>API: Слот, challenge, сесия, записване, сървърно време
     API->>DB: Транзакционен запис, UNIQUE(lesson, student)
@@ -163,8 +163,8 @@ flowchart LR
         TCH["👩‍🏫 Преподавателско табло"]
         PRJ["🖥️ Projector mode<br/>QR + AprilTag + countdown"]
         STU["📱 Студентски изглед<br/>AprilTag скенер"]
-        WASM["🧩 AprilTag WASM<br/>в Web Worker"]
-        STU --- WASM
+        DET["🧩 js-aruco2 детектор<br/>в Web Worker"]
+        STU --- DET
     end
 
     subgraph Server["⚙️ Backend (NestJS)"]
@@ -203,7 +203,7 @@ flowchart LR
 | Real-time | WebSocket (Socket.IO) / SSE | Live roster, ротация, revoke |
 | Опашки и кеш | Redis + BullMQ (по избор) | Имейли, импорти, rate limiting |
 | QR | `qrcode` (npm) | Само генериране, сканира системната камера |
-| Разпознаване | AprilTag 3 → WASM + TypeScript wrapper | Локална детекция, без AI модел |
+| Разпознаване | js-aruco2 + речник tag36h11, в Web Worker | Локална детекция, без AI модел и без качване на кадри |
 | Отчети | ExcelJS | Сървърно генериране на .xlsx |
 | Сигурност | Argon2id, HttpOnly cookies, CSRF, CSP, RBAC | |
 | Тестове | Vitest/Jest, Supertest, Playwright, реални устройства | Unit, integration, E2E |
@@ -497,7 +497,7 @@ gantt
     axisFormat Седм. %W
     section Основа
     Политики, UX прототип, схема, OpenAPI          :a1, 2026-11-23, 7d
-    AprilTag proof-of-concept на реални телефони   :crit, a2, 2026-11-23, 7d
+    Check-In Tag proof-of-concept на реални телефони   :crit, a2, 2026-11-23, 7d
     section Ядро
     Auth, админ, импорти, курсове, frontend shell  :b1, after a1, 14d
     Lifecycle на занятие, QR, AprilTag, verify     :crit, b2, after b1, 14d
@@ -510,7 +510,7 @@ gantt
 |---|---|
 | **M1** | Схема, OpenAPI договор, mock отговори, дизайн на основните екрани |
 | **M2** | Админ, курсове, auth, QR deep link със запазване на `returnTo` |
-| **M3** | Проектор и AprilTag WASM прототип на реални iOS/Android устройства, измерен detection rate |
+| **M3** | Проектор и Check-In Tag прототип на реални iOS/Android устройства, измерен detection rate |
 | **M4** | Атомарен verify, праг за закъснение, live roster, състояния на грешки |
 | **M5** | Pentest и privacy преглед, достъпност, performance тест, deployment, документация |
 

@@ -219,9 +219,10 @@ phones, and locking them to one browser would create requests with nobody left t
 ## Importing students
 
 Administrators can create accounts in bulk from the registry's own spreadsheet
-(`.xlsx` or `.csv`).
+(`.xlsx`, `.csv` or `.tsv`).
 
-Column headers are recognised in English, Turkish and Bulgarian:
+Column headers are recognised in English, Turkish and Bulgarian. Matching ignores case and
+accents, so `Öğrenci No`, `Ogrenci No` and `ÖĞRENCİ NO` all work:
 
 | Field | Accepted headers |
 |-------|------------------|
@@ -272,7 +273,7 @@ apps/
 | Passwords | Argon2id | Memory-hard |
 | Sessions | httpOnly cookies, rotating refresh tokens with reuse detection | Nothing readable from JavaScript |
 | Marker | AprilTag 36h11, derived per slot with HMAC | IDs cannot be predicted without the lesson secret |
-| Detection | `js-aruco2` in a Web Worker | Runs on the phone; no frames leave it |
+| Detection | `js-aruco2` + the tag36h11 dictionary, in a Web Worker | Runs on the phone; no frames leave it, and no WASM build is needed |
 | Reports | ExcelJS | Formula-injection safe |
 
 The lesson secret used to derive markers is never sent to any client. The projector receives only

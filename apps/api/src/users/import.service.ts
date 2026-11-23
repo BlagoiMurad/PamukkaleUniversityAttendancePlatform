@@ -10,12 +10,26 @@ import type { RequestMeta } from '../common/decorators';
 import type { AuthUser } from '../common/auth-user';
 
 /** Header spellings we accept, so a registry export does not have to be re-typed. */
+/** Lower-cased, accent-free, single-spaced: the form both the aliases and the sheet are compared in. */
+const normaliseHeader = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    // Turkish dotless i and the Bulgarian/Turkish letters NFD does not decompose.
+    .replace(/ı/g, 'i')
+    .replace(/İ/g, 'i')
+    .replace(/ş/gi, 's')
+    .replace(/ğ/gi, 'g')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+
 const COLUMNS: Record<string, string[]> = {
   email: ['email', 'e-mail', 'mail', 'имейл', 'и-мейл', 'eposta', 'e-posta'],
-  name: ['name', 'full name', 'student', 'име', 'имена', 'ad', 'adi', 'ad soyad'],
-  facultyNumber: ['faculty number', 'facultynumber', 'fn', 'student number', 'no', 'факултетен номер', 'фн', 'номер', 'ogrenci no', 'numara'],
-  programme: ['programme', 'program', 'major', 'специалност', 'bolum', 'bölüm'],
-  year: ['year', 'course', 'курс', 'година', 'sinif', 'sınıf'],
+  name: ['name', 'full name', 'student', 'име', 'имена', 'ad', 'adi', 'ad soyad', 'adi soyadi'],
+  facultyNumber: ['faculty number', 'facultynumber', 'fn', 'student number', 'student no', 'no', 'факултетен номер', 'фн', 'номер', 'ogrenci no', 'ogrenci numarasi', 'numara'],
+  programme: ['programme', 'program', 'major', 'специалност', 'bolum'],
+  year: ['year', 'course', 'курс', 'година', 'sinif'],
   group: ['group', 'група', 'grup'],
   role: ['role', 'роля', 'rol'],
 };
@@ -48,11 +62,16 @@ export class ImportService {
     private readonly audit: AuditService,
   ) {}
 
-  /** Maps the sheet's own header row onto our field names; unknown columns are ignored. */
+  /**
+   * Maps the sheet's own header row onto our field names; unknown columns are ignored.
+   * Headers are compared with accents stripped, so "Öğrenci No", "Ogrenci No" and
+   * "ÖĞRENCİ NO" all match the same alias. Turkish keyboards and registry exports disagree
+   * about diacritics often enough that matching them literally loses whole columns.
+   */
   private mapHeaders(headers: string[]) {
     const map = new Map<number, string>();
     headers.forEach((raw, i) => {
-      const h = String(raw ?? '').trim().toLowerCase();
+      const h = normaliseHeader(String(raw ?? ''));
       if (!h) return;
       for (const [field, aliases] of Object.entries(COLUMNS)) {
         if (aliases.includes(h)) {

@@ -220,9 +220,11 @@ talepler yaratırdı.
 
 ## Öğrenci içe aktarma
 
-Yöneticiler, öğrenci işlerinin kendi tablosundan (`.xlsx` veya `.csv`) toplu hesap oluşturabilir.
+Yöneticiler, öğrenci işlerinin kendi tablosundan (`.xlsx`, `.csv` veya `.tsv`) toplu hesap
+oluşturabilir.
 
-Sütun başlıkları Türkçe, İngilizce ve Bulgarca tanınır:
+Sütun başlıkları Türkçe, İngilizce ve Bulgarca tanınır. Eşleştirme büyük/küçük harf ve aksan
+farkı gözetmez; `Öğrenci No`, `Ogrenci No` ve `ÖĞRENCİ NO` aynı şekilde çalışır:
 
 | Alan | Kabul edilen başlıklar |
 |------|------------------------|
@@ -273,7 +275,7 @@ apps/
 | Şifreler | Argon2id | Bellek yoğun |
 | Oturumlar | httpOnly çerezler, yeniden kullanım tespitli dönen yenileme belirteçleri | JavaScript'ten okunamaz |
 | İşaret | AprilTag 36h11, dilim başına HMAC ile türetilir | Ders sırrı olmadan kimlikler tahmin edilemez |
-| Tanıma | Web Worker içinde `js-aruco2` | Telefonda çalışır; kareler telefondan çıkmaz |
+| Tanıma | Web Worker içinde `js-aruco2` + tag36h11 sözlüğü | Telefonda çalışır; kareler telefondan çıkmaz, WASM derlemesi gerekmez |
 | Raporlar | ExcelJS | Formül enjeksiyonuna karşı güvenli |
 
 İşaretleri türetmek için kullanılan ders sırrı hiçbir istemciye gönderilmez. Projeksiyon yalnızca
