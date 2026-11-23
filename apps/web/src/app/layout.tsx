@@ -4,8 +4,8 @@ import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: { default: 'Attendance · Pamukkale University', template: '%s · Attendance' },
-  description: 'University attendance with QR check-in and live AprilTag verification',
-  icons: { icon: '/icon.svg' },
+  description: 'University attendance with QR check-in and live Check-In Tag verification',
+  icons: { icon: '/pau-logo.png', apple: '/pau-logo.png' },
 };
 
 export const viewport: Viewport = {

@@ -1,7 +1,7 @@
 'use client';
 import * as React from 'react';
 import { CheckCircle2, QrCode, ScanLine, ShieldCheck } from 'lucide-react';
-import { Logo } from './brand';
+import { Crest, Logo } from './brand';
 import { SignInArt, TerraceBackdrop } from './illustrations';
 import { LanguageSwitch } from './language-switch';
 import { useT } from '@/lib/i18n';
@@ -13,8 +13,8 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
       <aside className="relative hidden overflow-hidden bg-gradient-to-br from-[hsl(215_65%_24%)] via-[hsl(214_60%_32%)] to-[hsl(210_56%_45%)] p-10 text-white lg:flex lg:flex-col">
         <div className="absolute inset-0 opacity-[.12]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '22px 22px' }} />
         <div className="relative flex items-center gap-2.5 font-bold">
-          <span className="grid size-9 place-items-center rounded-xl bg-white/15 ring-1 ring-white/25">
-            <ScanLine className="size-5" />
+          <span className="grid size-11 place-items-center rounded-xl bg-white/95 p-1 shadow-sm ring-1 ring-white/40">
+            <Crest className="size-full" />
           </span>
           PAU Attendance
         </div>

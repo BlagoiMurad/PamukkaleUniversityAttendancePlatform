@@ -26,57 +26,77 @@ export function StudentHistoryTable({ limit }: { limit?: number }) {
   if (q.isLoading) return <Spinner />;
   const items = (q.data?.items ?? []).slice(0, limit);
   if (!items.length) return <EmptyState title={t('student.noHistory')} description={t('student.subtitle')} />;
+  /** Shared by both layouts: either the outcome of a dispute, or the way to raise one. */
+  const disputeCell = (a: any) =>
+    a.dispute ? (
+      <Badge variant={a.dispute.status === 'PENDING' ? 'warning' : a.dispute.status === 'APPROVED' ? 'success' : 'muted'}>
+        {a.dispute.status.toLowerCase()}
+      </Badge>
+    ) : (
+      a.status !== 'PRESENT' &&
+      a.status !== 'MANUAL_PRESENT' && (
+        <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setDispute(a)}>
+          <MessageSquareWarning /> {t('student.dispute')}
+        </Button>
+      )
+    );
+
   return (
     <>
-      <Table>
-        <THead>
-          <TR>
-            <TH className="pl-5">{t('lesson.startsAt')}</TH>
-            <TH>{t('nav.courses')}</TH>
-            <TH>{t('common.status')}</TH>
-            {/* The action moves into the status cell on phones, so this column disappears. */}
-            <TH className="hidden sm:table-cell">{t('lesson.checkedIn')}</TH>
-            <TH className="hidden pr-5 text-right sm:table-cell" />
-          </TR>
-        </THead>
-        <TBody>
-          {items.map((a: any) => (
-            <TR key={a.id}>
-              <TD className="pl-3 sm:pl-5"><p className="font-medium">{fmt.weekday(a.lesson.startsAt)}</p><p className="text-xs text-muted-foreground">{fmt.time(a.lesson.startsAt)}</p></TD>
-              <TD className="max-w-[8rem] sm:max-w-none"><p className="font-medium">{a.lesson.course.code}</p><p className="truncate text-xs text-muted-foreground">{a.lesson.title || a.lesson.course.title}</p></TD>
-              <TD>
-                <AttendanceBadge status={a.status} />
-                {a.verifiedAt && <span className="tabular mt-1 block text-xs text-muted-foreground sm:hidden">{fmt.timeSec(a.verifiedAt)}</span>}
-                <span className="mt-1 block sm:hidden">
-                  {a.dispute ? (
-                    <Badge variant={a.dispute.status === 'PENDING' ? 'warning' : a.dispute.status === 'APPROVED' ? 'success' : 'muted'}>{a.dispute.status.toLowerCase()}</Badge>
-                  ) : (
-                    a.status !== 'PRESENT' && a.status !== 'MANUAL_PRESENT' && (
-                      <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setDispute(a)}>
-                        {t('student.dispute')}
-                      </button>
-                    )
-                  )}
-                </span>
-              </TD>
-              <TD className="tabular hidden text-sm text-muted-foreground sm:table-cell">{a.verifiedAt ? fmt.timeSec(a.verifiedAt) : '—'}</TD>
-              <TD className="hidden pr-5 text-right sm:table-cell">
-                {a.dispute ? (
-                  <Badge variant={a.dispute.status === 'PENDING' ? 'warning' : a.dispute.status === 'APPROVED' ? 'success' : 'muted'}>{a.dispute.status.toLowerCase()}</Badge>
-                ) : (
-                  a.status !== 'PRESENT' && a.status !== 'MANUAL_PRESENT' && (
-                    <Button size="sm" variant="ghost" onClick={() => setDispute(a)} aria-label={t('student.dispute')}>
-                      <MessageSquareWarning />
-                      {/* The label alone is wider than a phone column allows. */}
-                      <span className="hidden sm:inline">{t('student.dispute')}</span>
-                    </Button>
-                  )
-                )}
-              </TD>
+      {/* Five columns never fit a phone: squeezing them truncated the action and wrapped the
+          badges. Below sm each lesson becomes a card where nothing has to compete for width. */}
+      <ul className="divide-y sm:hidden">
+        {items.map((a: any) => (
+          <li key={a.id} className="space-y-2 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-semibold">{a.lesson.course.code}</p>
+                <p className="truncate text-sm text-muted-foreground">{a.lesson.title || a.lesson.course.title}</p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="whitespace-nowrap text-sm font-medium">{fmt.weekday(a.lesson.startsAt)}</p>
+                <p className="text-xs text-muted-foreground">{fmt.time(a.lesson.startsAt)}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <AttendanceBadge status={a.status} />
+              {a.verifiedAt && <span className="tabular text-xs text-muted-foreground">{fmt.timeSec(a.verifiedAt)}</span>}
+              <span className="ml-auto">{disputeCell(a)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <div className="hidden sm:block">
+        <Table>
+          <THead>
+            <TR>
+              <TH className="pl-5">{t('lesson.startsAt')}</TH>
+              <TH>{t('nav.courses')}</TH>
+              <TH>{t('common.status')}</TH>
+              <TH>{t('lesson.checkedIn')}</TH>
+              <TH className="pr-5 text-right" />
             </TR>
-          ))}
-        </TBody>
-      </Table>
+          </THead>
+          <TBody>
+            {items.map((a: any) => (
+              <TR key={a.id}>
+                <TD className="pl-5">
+                  <p className="whitespace-nowrap font-medium">{fmt.weekday(a.lesson.startsAt)}</p>
+                  <p className="text-xs text-muted-foreground">{fmt.time(a.lesson.startsAt)}</p>
+                </TD>
+                <TD>
+                  <p className="font-medium">{a.lesson.course.code}</p>
+                  <p className="text-xs text-muted-foreground">{a.lesson.title || a.lesson.course.title}</p>
+                </TD>
+                <TD><AttendanceBadge status={a.status} /></TD>
+                <TD className="tabular text-sm text-muted-foreground">{a.verifiedAt ? fmt.timeSec(a.verifiedAt) : '—'}</TD>
+                <TD className="pr-5 text-right">{disputeCell(a)}</TD>
+              </TR>
+            ))}
+          </TBody>
+        </Table>
+      </div>
       <DisputeDialog attendance={dispute} onClose={() => setDispute(null)} />
     </>
   );

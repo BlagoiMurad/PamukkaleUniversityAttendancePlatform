@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock, Expand, Users, WifiOff, X } from 'lucide-react';
 import { AprilTag } from '@/components/apriltag';
 import { QrCode } from '@/components/qr-code';
+import { Crest } from '@/components/brand';
 import { LessonBadge } from '@/components/status';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/misc';
@@ -112,12 +113,15 @@ function Projector({ id }: { id: string }) {
   return (
     <div className="flex min-h-dvh flex-col bg-white text-slate-900">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-8 py-5">
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-4">
+          <Crest className="hidden size-14 shrink-0 sm:block" />
+          <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <span className="rounded-lg bg-[hsl(184_84%_32%)] px-2.5 py-1 text-sm font-bold text-white">{state.course.code}</span>
+            <span className="rounded-lg bg-[hsl(var(--brand-navy))] px-2.5 py-1 text-sm font-bold text-white">{state.course.code}</span>
             <LessonBadge status={state.status} />
           </div>
           <h1 className="mt-1 truncate text-3xl font-bold tracking-tight">{state.course.title}{state.title ? ` · ${state.title}` : ''}</h1>
+          </div>
         </div>
         <div className="flex items-center gap-6 text-lg">
           {lateAt && (
@@ -176,7 +180,7 @@ function Projector({ id }: { id: string }) {
         </div>
       )}
       <footer className="flex items-center justify-between px-8 pb-4 text-sm text-slate-400">
-        <span>AprilTag 36h11 · {state.rotationSeconds}s</span>
+        <span>Check-In Tag · {state.rotationSeconds}s</span>
         <span className="flex items-center gap-2">
           <span className={cn('size-2 rounded-full', connected ? 'bg-emerald-500' : 'bg-amber-500')} /> {connected ? t('lesson.connected') : t('lesson.reconnecting')}
         </span>

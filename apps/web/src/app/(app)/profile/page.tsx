@@ -23,8 +23,8 @@ export default function ProfilePage() {
   const me = useMe();
   const sessions = useQuery({ queryKey: ['sessions'], queryFn: () => api('/auth/sessions') });
   const u = me.data!.user;
-  const editable = u.role === 'STUDENT' ? me.data!.settings.studentEditableFields : ['name', 'preferredName', 'phone', 'locale'];
-  const [v, setV] = React.useState({ name: u.name ?? '', preferredName: u.preferredName ?? '', phone: u.phone ?? '' });
+  const editable = u.role === 'STUDENT' ? me.data!.settings.studentEditableFields : ['preferredName', 'phone', 'locale'];
+  const [v, setV] = React.useState({ preferredName: u.preferredName ?? '', phone: u.phone ?? '' });
   const [busy, setBusy] = React.useState(false);
 
   return (
@@ -35,7 +35,7 @@ export default function ProfilePage() {
           <CardHeader><CardTitle>{t('profile.details')}</CardTitle><CardDescription>{t('profile.managed')}</CardDescription></CardHeader>
           <CardContent className="space-y-4">
             <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-              {!editable.includes('name') && (<><dt className="text-muted-foreground">{t('common.name')}</dt><dd className="font-medium">{u.name}</dd></>)}
+              <dt className="text-muted-foreground">{t('common.name')}</dt><dd className="font-medium">{u.name}</dd>
               <dt className="text-muted-foreground">{t('common.email')}</dt><dd className="font-medium">{u.email}</dd>
               <dt className="text-muted-foreground">Role</dt><dd><Badge variant="outline">{t(`role.${u.role}` as MessageKey)}</Badge></dd>
               {u.universityId && (<><dt className="text-muted-foreground">University ID</dt><dd className="tabular">{u.universityId}</dd></>)}
@@ -52,7 +52,6 @@ export default function ProfilePage() {
                   await api('/me', {
                     method: 'PATCH',
                     body: {
-                      ...(editable.includes('name') ? { name: v.name.trim() } : {}),
                       preferredName: v.preferredName || null,
                       phone: v.phone || null,
                     },
@@ -66,7 +65,6 @@ export default function ProfilePage() {
                 }
               }}
             >
-              {editable.includes('name') && <Field label={t('common.name')} htmlFor="nm" hint={t('profile.nameHint')}><Input id="nm" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} maxLength={120} required /></Field>}
               {editable.includes('preferredName') && <Field label={t('profile.preferredName')} htmlFor="pn"><Input id="pn" value={v.preferredName} onChange={(e) => setV({ ...v, preferredName: e.target.value })} maxLength={100} /></Field>}
               {editable.includes('phone') && <Field label={t('profile.phone')} htmlFor="ph"><Input id="ph" type="tel" value={v.phone} onChange={(e) => setV({ ...v, phone: e.target.value })} maxLength={40} /></Field>}
               <Button type="submit" loading={busy}>{t('common.save')}</Button>

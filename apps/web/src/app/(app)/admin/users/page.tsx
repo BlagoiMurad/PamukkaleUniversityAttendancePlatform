@@ -2,7 +2,7 @@
 import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Copy, KeyRound, LogOut, MailPlus, Plus, Search, ShieldOff, ShieldCheck, Upload } from 'lucide-react';
+import { Copy, KeyRound, Link as LinkIcon, LogOut, Mail, MailPlus, Plus, Search, ShieldOff, ShieldCheck, Upload, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Alert, EmptyState, PageHeader, Spinner, Table, TBody, TD, TH, THead, TR
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { useT, type MessageKey } from '@/lib/i18n';
 import { errorMessage } from '@/lib/errors';
 import { useFormat } from '@/lib/format';
@@ -26,7 +27,7 @@ export default function UsersPage() {
   const [status, setStatus] = React.useState('');
   const [page, setPage] = React.useState(1);
   const [create, setCreate] = React.useState(false);
-  const [onboarding, setOnboarding] = React.useState<{ name: string; activationUrl: string | null; tempPassword: string | null } | null>(null);
+  const [onboarding, setOnboarding] = React.useState<{ name: string; email: string; activationUrl: string | null; tempPassword: string | null } | null>(null);
   const users = useQuery({
     queryKey: ['users', q, role, status, page],
     queryFn: () => api(`/admin/users?q=${encodeURIComponent(q)}&role=${role}&status=${status}&page=${page}&pageSize=25`),
@@ -88,7 +89,7 @@ export default function UsersPage() {
                   <TD className="pr-5">
                     <div className="flex justify-end gap-1">
                       {u.status === 'INVITED' && (
-                        <Button size="sm" variant="ghost" title={t('admin.resendInvite')} onClick={async () => { const r = await act(() => api(`/admin/users/${u.id}/resend-invite`, { method: 'POST' })); if (r) setOnboarding({ name: u.name, ...r }); }}><MailPlus /></Button>
+                        <Button size="sm" variant="ghost" title={t('admin.resendInvite')} onClick={async () => { const r = await act(() => api(`/admin/users/${u.id}/resend-invite`, { method: 'POST' })); if (r) setOnboarding({ name: u.name, email: u.email, ...r }); }}><MailPlus /></Button>
                       )}
                       <Button size="sm" variant="ghost" title={t('admin.revokeSessions')} onClick={() => act(() => api(`/admin/users/${u.id}/revoke-sessions`, { method: 'POST' }), t('common.saved'))}><LogOut /></Button>
                       {u.status === 'SUSPENDED' ? (
@@ -141,7 +142,7 @@ function CreateUserDialog({ open, onOpenChange, onCreated }: { open: boolean; on
               if (v.role === 'TEACHER') body.department = v.department || null;
               const r = await api('/admin/users', { body });
               onOpenChange(false);
-              onCreated({ name: r.user.name, activationUrl: r.activationUrl, tempPassword: r.tempPassword });
+              onCreated({ name: r.user.name, email: r.user.email, activationUrl: r.activationUrl, tempPassword: r.tempPassword });
             } catch (e2) {
               setErr(errorMessage(e2, t));
             } finally {
@@ -172,17 +173,54 @@ function CreateUserDialog({ open, onOpenChange, onCreated }: { open: boolean; on
   );
 }
 
-function OnboardingDialog({ value, onClose }: { value: { name: string; activationUrl: string | null; tempPassword: string | null } | null; onClose: () => void }) {
+/** One line of the handover sheet: a label, the value, and its own copy button. */
+function CopyRow({ label, value, icon: Icon, mono }: { label: string; value: string; icon: React.ComponentType<{ className?: string }>; mono?: boolean }) {
   const t = useT();
-  const secret = value?.activationUrl ?? value?.tempPassword ?? '';
   return (
-    <Dialog open={!!value} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent title={value?.activationUrl ? t('admin.inviteLink') : t('admin.tempPassword')} description={`${value?.name ?? ''} · ${t('admin.inviteLinkHint')}`}>
-        <div className="flex items-center gap-2 rounded-lg border bg-muted p-3">
-          <KeyRound className="size-4 shrink-0 text-muted-foreground" />
-          <code className="min-w-0 flex-1 break-all text-xs">{secret}</code>
-          <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(secret).then(() => toast.success(t('common.copied')))}><Copy /> {t('common.copy')}</Button>
+    <div className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3">
+      <Icon className="size-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className={cn('min-w-0 break-all text-sm', mono && 'font-mono')}>{value}</p>
+      </div>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="size-8 shrink-0"
+        aria-label={`${t('common.copy')} ${label}`}
+        onClick={() => navigator.clipboard.writeText(value).then(() => toast.success(t('common.copied')))}
+      >
+        <Copy />
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Shown after an account is created or an invitation is resent. The admin has to pass these
+ * details on, so name, e-mail and the secret each copy on their own and there is one button
+ * that copies the lot in a form that can be pasted straight into a message.
+ */
+function OnboardingDialog({ value, onClose }: { value: { name: string; email: string; activationUrl: string | null; tempPassword: string | null } | null; onClose: () => void }) {
+  const t = useT();
+  if (!value) return null;
+  const isLink = !!value.activationUrl;
+  const secret = value.activationUrl ?? value.tempPassword ?? '';
+  const secretLabel = isLink ? t('admin.inviteLink') : t('admin.tempPassword');
+  const all = `${t('common.name')}: ${value.name}\n${t('common.email')}: ${value.email}\n${secretLabel}: ${secret}`;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent title={t('admin.onboardingTitle')} description={t('admin.onboardingHint')}>
+        <div className="space-y-2">
+          <CopyRow label={t('common.name')} value={value.name} icon={UserRound} />
+          <CopyRow label={t('common.email')} value={value.email} icon={Mail} />
+          <CopyRow label={secretLabel} value={secret} icon={isLink ? LinkIcon : KeyRound} mono={!isLink} />
         </div>
+        <Alert variant="warning">{t('admin.onboardingWarning')}</Alert>
+        <Button className="w-full" onClick={() => navigator.clipboard.writeText(all).then(() => toast.success(t('common.copied')))}>
+          <Copy /> {t('admin.copyAll')}
+        </Button>
       </DialogContent>
     </Dialog>
   );

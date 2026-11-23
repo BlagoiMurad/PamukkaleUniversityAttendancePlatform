@@ -12,7 +12,7 @@ import { createHmac } from 'crypto';
  */
 export const TAG_FAMILY = 'tag36h11';
 export const TAG36H11_COUNT = 587;
-export const DEFAULT_ROTATION_SECONDS = 20;
+export const DEFAULT_ROTATION_SECONDS = 10;
 
 export function slotIndex(epochMs: number, nowMs: number, rotationSeconds = DEFAULT_ROTATION_SECONDS): number {
   return Math.floor((nowMs - epochMs) / (rotationSeconds * 1000));

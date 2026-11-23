@@ -12,7 +12,7 @@ export const AprilTag = React.memo(function AprilTag({ id, className, title }: {
     }),
   );
   return (
-    <svg viewBox="0 0 10 10" className={className} shapeRendering="crispEdges" role="img" aria-label={title ?? `AprilTag 36h11 marker ${id}`}>
+    <svg viewBox="0 0 10 10" className={className} shapeRendering="crispEdges" role="img" aria-label={title ?? `Check-In Tag ${id}`}>
       <rect width="10" height="10" fill="#fff" />
       <g fill="#000">{rects}</g>
     </svg>

@@ -38,10 +38,9 @@ export class MeController {
   @Patch()
   async update(@CurrentUser() user: AuthUser, @Body(new ZodPipe(meSchema)) body: z.infer<typeof meSchema>, @ReqMeta() meta: RequestMeta) {
     const s = await this.settings.get();
-    // Staff own their display name. For students it stays policy-driven: the name appears on
-    // attendance reports, so an admin can take it back under registry control by removing
-    // 'name' from studentEditableFields.
-    const allowed = user.role === 'STUDENT' ? s.studentEditableFields : ['name', 'preferredName', 'phone', 'locale'];
+    // Nobody renames themselves: the name comes from the registry and appears on attendance
+    // reports, so only an admin changes it, through /admin/users/:id.
+    const allowed = (user.role === 'STUDENT' ? s.studentEditableFields : ['preferredName', 'phone', 'locale']).filter((f) => f !== 'name');
     const data: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(body)) if (allowed.includes(k as any) && v !== undefined) data[k] = v;
     const u = await this.prisma.user.update({ where: { id: user.id }, data, include: { studentProfile: true, teacherProfile: true } });
