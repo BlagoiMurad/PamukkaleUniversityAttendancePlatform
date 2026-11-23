@@ -19,8 +19,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
+    // Browser extensions (ad-blockers, Bitdefender) stamp attributes onto <html> and <body>
+    // before React hydrates, which React reports as a mismatch. Suppressed on these two
+    // elements only, so a genuine mismatch anywhere inside the app is still reported.
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-dvh">
+      <body className="min-h-dvh" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>
